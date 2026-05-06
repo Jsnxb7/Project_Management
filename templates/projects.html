@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Projects | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Projects</p>
+        <h1>My Projects</h1>
+        <p class="muted">Create projects, accept invitations, open Kanban boards, manage members, and review analytics.</p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Create Project</h2>
+        <form id="projectForm" class="advanced-form">
+            <label>Project Name</label>
+            <input type="text" id="projectName" placeholder="Example: Final Year Submission" required maxlength="100">
+
+            <label>Description</label>
+            <textarea id="projectDescription" placeholder="Short project description"></textarea>
+
+            <label>Start Date</label>
+            <input type="date" id="projectStartDate">
+
+            <label>Deadline</label>
+            <input type="date" id="projectDeadline">
+
+            <label>Priority</label>
+            <select id="projectPriority">
+                <option>Low</option>
+                <option selected>Medium</option>
+                <option>High</option>
+                <option>Critical</option>
+            </select>
+
+            <label>Category</label>
+            <input type="text" id="projectCategory" placeholder="Academic, Client, Internal">
+
+            <label>Status</label>
+            <select id="projectWorkflowStatus">
+                <option>Planning</option>
+                <option selected>Active</option>
+                <option>On Hold</option>
+                <option>Completed</option>
+            </select>
+
+            <label>Visibility</label>
+            <select id="projectVisibility">
+                <option selected>Private</option>
+                <option>Internal</option>
+            </select>
+
+            <label>Tags</label>
+            <input type="text" id="projectTags" placeholder="Flask, MongoDB, UI">
+
+            <button class="btn" type="submit">Create Project →</button>
+        </form>
+        <p id="message" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <h2>Find Projects</h2>
+        <p class="muted">Filter project cards instantly.</p>
+        <input type="text" id="projectSearch" placeholder="Search name, description, tag, category…">
+
+        <div class="invite-box">
+            <h2>Pending Invitations</h2>
+            <div id="invitationList" class="invitation-list"></div>
+        </div>
+    </div>
+</section>
+
+<section id="projectList" class="card-grid"></section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/projects.js') }}"></script>
+{% endblock %}

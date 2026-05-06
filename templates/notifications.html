@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Inbox</p>
+        <h1>Notifications</h1>
+    </div>
+    <button id="markAllRead" class="btn secondary">Mark all as read</button>
+</section>
+
+<section class="panel">
+    <div class="split compact" style="margin-bottom:1rem;">
+        <h2 style="margin:0">Updates</h2>
+        <span style="font-family:var(--font-mono);font-size:0.8rem;color:var(--muted)">
+            Unread: <strong id="unreadCount" style="color:var(--teal)">0</strong>
+        </span>
+    </div>
+    <div id="notificationList" class="notification-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+{% endblock %}

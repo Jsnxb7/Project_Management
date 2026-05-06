@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Dashboard</p>
+        <h1>Workspace Overview</h1>
+        <p class="muted">Track your projects, assigned tasks, overdue work, and overall completion.</p>
+    </div>
+    <a class="btn" href="/projects">View Projects</a>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card"><span>Total Projects</span><strong id="totalProjects">0</strong></article>
+    <article class="stat-card"><span>Total Tasks</span><strong id="totalTasks">0</strong></article>
+    <article class="stat-card"><span>My Tasks</span><strong id="myTasks">0</strong></article>
+    <article class="stat-card"><span>Overdue</span><strong id="overdueTasks">0</strong></article>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Task Breakdown</h2>
+        <div id="statusSummary">
+            <div class="summary-row"><span>To Do</span><strong id="todoTasks">0</strong></div>
+            <div class="summary-row"><span>In Progress</span><strong id="progressTasks">0</strong></div>
+            <div class="summary-row"><span>Done</span><strong id="doneTasks">0</strong></div>
+            <div class="summary-row"><span>High / Critical</span><strong id="highPriorityTasks">0</strong></div>
+        </div>
+    </div>
+    <div class="panel">
+        <h2>Overall Completion</h2>
+        <p class="muted"><strong id="completionRate" style="color:var(--teal)">0%</strong> of workspace tasks are complete.</p>
+        <div class="progress-track"><div id="completionFill" class="progress-fill"></div></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

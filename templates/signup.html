@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Signup | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="auth-card">
+    <p class="eyebrow">Create Account</p>
+    <h1>Join TaskFlow</h1>
+    <p>Your secure workspace account. Passwords are hashed before storage.</p>
+
+    <form id="signupForm">
+        <label>Name</label>
+        <input type="text" id="name" required maxlength="80" autocomplete="name" placeholder="Your full name">
+
+        <label>Email</label>
+        <input type="email" id="email" required autocomplete="email" placeholder="you@company.com">
+
+        <label>Password</label>
+        <input type="password" id="password" required minlength="8" autocomplete="new-password" placeholder="Min. 8 characters">
+
+        <label>Confirm Password</label>
+        <input type="password" id="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Repeat password">
+
+        <button class="btn full" type="submit">Create Account →</button>
+    </form>
+
+    <p id="message" class="message"></p>
+    <p class="muted" style="margin-top:1.2rem;font-size:0.88rem;">Already have an account? <a href="/login" style="color:var(--teal)">Login here</a>.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

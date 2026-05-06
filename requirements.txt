@@ -1,0 +1,9 @@
+Flask
+flask-cors
+flask-bcrypt
+flask-jwt-extended
+pymongo
+python-dotenv
+gunicorn
+dnspython
+Werkzeug

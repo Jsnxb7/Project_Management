@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Login | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="auth-card">
+    <p class="eyebrow">Secure Login</p>
+    <h1>Welcome Back</h1>
+    <p>Continue to your dashboard, projects, tasks, and notifications.</p>
+
+    <form id="loginForm">
+        <label>Email</label>
+        <input type="email" id="email" required autocomplete="email" placeholder="you@company.com">
+
+        <label>Password</label>
+        <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+
+        <button class="btn full" type="submit">Login →</button>
+    </form>
+
+    <p id="message" class="message"></p>
+    <p class="muted" style="margin-top:1.2rem;font-size:0.88rem;">New here? <a href="/signup" style="color:var(--teal)">Create an account</a>.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

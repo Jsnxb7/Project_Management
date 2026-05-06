@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}My Tasks | TaskFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Personal Workload</p>
+        <h1>My Tasks</h1>
+        <p class="muted">Tasks assigned to you with deadline and completion indicators.</p>
+    </div>
+    <a href="/projects" class="btn secondary">← Projects</a>
+</section>
+
+<section class="visual-grid">
+    <article class="metric-card"><span>Total Assigned</span><strong id="myTotal">0</strong></article>
+    <article class="metric-card"><span>In Progress</span><strong id="myProgress">0</strong></article>
+    <article class="metric-card"><span>Due Today</span><strong id="myToday">0</strong></article>
+    <article class="metric-card"><span>Overdue</span><strong id="myOverdue">0</strong></article>
+    <article class="metric-card wide">
+        <div class="split compact">
+            <span>My Completion</span>
+            <strong id="myCompletion">0%</strong>
+        </div>
+        <div class="progress-track"><div id="myCompletionFill" class="progress-fill"></div></div>
+    </article>
+</section>
+
+<section class="panel filter-panel">
+    <h2>Search, Filter &amp; Sort</h2>
+    <div class="filter-grid rich-filter-grid">
+        <input type="text" id="taskSearch" placeholder="Search my tasks…">
+        <select id="statusFilter">
+            <option value="">All Statuses</option>
+            <option>To Do</option><option>In Progress</option><option>Done</option>
+            <option>Blocked</option><option>Under Review</option><option>Cancelled</option>
+        </select>
+        <select id="priorityFilter">
+            <option value="">All Priorities</option>
+            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+        </select>
+        <select id="deadlineFilter">
+            <option value="">All Deadlines</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Due Today</option>
+            <option value="week">Due This Week</option>
+        </select>
+        <select id="sortFilter">
+            <option value="created_desc">Newest First</option>
+            <option value="deadline_asc">Nearest Deadline</option>
+            <option value="priority">Priority</option>
+        </select>
+        <button class="btn secondary" id="clearFilters" type="button">Clear</button>
+    </div>
+</section>
+
+<section id="myTaskList" class="task-list standalone-task-list"></section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/my_tasks.js') }}"></script>
+{% endblock %}

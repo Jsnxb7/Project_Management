@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Project | TaskFlow{% endblock %}
+
+{% block content %}
+<input type="hidden" id="projectId" value="{{ project_id }}">
+
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Admin</p>
+        <h1>Manage Project</h1>
+        <p class="muted">Control project settings, invitations, active members, and project lifecycle.</p>
+    </div>
+    <div class="project-actions">
+        <a href="/project/{{ project_id }}/tasks" class="btn secondary">Task Board</a>
+        <a href="/project/{{ project_id }}/analytics" class="btn secondary">Analytics</a>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Project Settings</h2>
+        <form id="projectEditForm" class="advanced-form">
+            <label>Project Name</label>
+            <input type="text" id="editProjectName" required>
+
+            <label>Description</label>
+            <textarea id="editProjectDescription"></textarea>
+
+            <label>Start Date</label>
+            <input type="date" id="editProjectStartDate">
+
+            <label>Deadline</label>
+            <input type="date" id="editProjectDeadline">
+
+            <label>Priority</label>
+            <select id="editProjectPriority">
+                <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+            </select>
+
+            <label>Category</label>
+            <input type="text" id="editProjectCategory">
+
+            <label>Workflow Status</label>
+            <select id="editProjectWorkflowStatus">
+                <option>Planning</option><option>Active</option><option>On Hold</option><option>Completed</option>
+            </select>
+
+            <label>Visibility</label>
+            <select id="editProjectVisibility">
+                <option>Private</option><option>Internal</option>
+            </select>
+
+            <label>Tags</label>
+            <input type="text" id="editProjectTags" placeholder="Flask, MongoDB, UI">
+
+            <button class="btn" type="submit">Save Settings</button>
+        </form>
+
+        <div class="progress-block project-progress-panel">
+            <div class="split compact">
+                <span>Project Completion</span>
+                <strong id="projectCompletionText">0%</strong>
+            </div>
+            <div class="progress-track"><div id="projectCompletionFill" class="progress-fill"></div></div>
+        </div>
+
+        <div class="danger-zone">
+            <h3>Danger Zone</h3>
+            <button id="archiveProject" class="danger-btn">Archive Project</button>
+            <button id="deleteProject" class="danger-btn">Delete Project</button>
+        </div>
+        <p id="projectMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <h2>Invite Member</h2>
+        <p class="muted">Members are invited first. They become active after accepting.</p>
+        <form id="addMemberForm">
+            <label>User Email</label>
+            <input type="email" id="memberEmail" required placeholder="colleague@company.com">
+
+            <label>Role</label>
+            <select id="memberRole">
+                <option value="Member">Member</option>
+                <option value="Admin">Admin</option>
+            </select>
+
+            <button class="btn" type="submit">Send Invitation</button>
+        </form>
+        <p id="memberMessage" class="message"></p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Active Members</h2>
+        <div id="memberList" class="member-list"></div>
+    </div>
+    <div class="panel">
+        <h2>Pending Invitations</h2>
+        <div id="pendingMemberList" class="member-list"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/manage_project.js') }}"></script>
+{% endblock %}

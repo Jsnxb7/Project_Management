@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TaskFlow{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <video class="video-background" autoplay muted loop playsinline aria-hidden="true">
+        <source src="{{ url_for('static', filename='images/stars.webm') }}" type="video/webm">
+        <source src="{{ url_for('static', filename='images/stars.mp4') }}" type="video/mp4">
+    </video>
+    <div class="page-overlay" aria-hidden="true"></div>
+
+    <nav class="navbar glass-nav">
+        <a class="brand" href="/" aria-label="TaskFlow home">
+            <span class="brand-mark">TF</span>
+            <span>TaskFlow</span>
+        </a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation">☰</button>
+        <div class="nav-links" id="navLinks">
+            <a data-auth-link href="/dashboard">Dashboard</a>
+            <a data-auth-link href="/projects">Projects</a>
+            <a data-auth-link href="/my-tasks">My Tasks</a>
+            <a data-auth-link href="/notifications">Notifications</a>
+            <a data-auth-link href="/profile">Profile</a>
+            <a data-guest-link href="/login">Login</a>
+            <a data-guest-link class="btn small" href="/signup">Get Started</a>
+            <button data-auth-link id="logoutBtn" class="btn small ghost" type="button">Logout</button>
+        </div>
+    </nav>
+
+    <main class="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

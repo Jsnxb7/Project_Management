@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}TaskFlow | Team Task Management{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-shell">
+        <div>
+            <p class="eyebrow">Team Task Management</p>
+            <h1>Ship faster.<br>Together.</h1>
+            <p class="hero-text">
+                A full-stack Flask and MongoDB Atlas application for secure project collaboration —
+                role-based member control, Kanban task tracking, comments, attachments,
+                notifications, activity logs, and progress analytics.
+            </p>
+            <div class="hero-actions">
+                <a href="/signup" class="btn">Start Workspace</a>
+                <a href="/login" class="btn secondary">Login</a>
+                <a href="/projects" class="btn ghost" data-auth-link>Open Projects →</a>
+            </div>
+        </div>
+
+        <aside class="hero-panel panel">
+            <p class="eyebrow">Built for the assignment</p>
+            <div class="feature-grid">
+                <article class="feature-card"><strong>JWT</strong><span>Protected APIs</span></article>
+                <article class="feature-card"><strong>RBAC</strong><span>Admin / Member roles</span></article>
+                <article class="feature-card"><strong>Kanban</strong><span>Task board workflow</span></article>
+                <article class="feature-card"><strong>Atlas</strong><span>Secure MongoDB config</span></article>
+            </div>
+        </aside>
+    </div>
+</section>
+{% endblock %}

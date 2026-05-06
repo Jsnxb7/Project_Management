@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Project Analytics | TaskFlow{% endblock %}
+
+{% block content %}
+<input type="hidden" id="projectId" value="{{ project_id }}">
+
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Analytics</p>
+        <h1>Project Dashboard</h1>
+    </div>
+    <a href="/project/{{ project_id }}/tasks" class="btn secondary">Task Board</a>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Total Tasks</span>
+        <strong id="totalTasks">0</strong>
+    </article>
+    <article class="stat-card">
+        <span>Completed</span>
+        <strong id="doneTasks">0</strong>
+    </article>
+    <article class="stat-card">
+        <span>Overdue</span>
+        <strong id="overdueTasks">0</strong>
+    </article>
+    <article class="stat-card">
+        <span>Progress</span>
+        <strong id="completionRate">0%</strong>
+        <div class="progress-track" style="margin-top:0.6rem;">
+            <div id="completionFill" class="progress-fill"></div>
+        </div>
+    </article>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Status Summary</h2>
+        <div id="statusSummary" class="summary-list"></div>
+    </div>
+
+    <div class="panel">
+        <h2>Priority Summary</h2>
+        <div id="prioritySummary" class="summary-list"></div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Tasks Per User</h2>
+    <div id="userSummary" class="member-list"></div>
+</section>
+
+<section class="panel">
+    <h2>Overdue Tasks</h2>
+    <div id="overdueList" class="task-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/project_analytics.js') }}"></script>
+{% endblock %}
