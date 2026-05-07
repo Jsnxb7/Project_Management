@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Manage Project | TaskFlow{% endblock %}
+{% block title %}Manage Project | ProjectFlow{% endblock %}
 
 {% block content %}
 <input type="hidden" id="projectId" value="{{ project_id }}">
@@ -12,7 +12,7 @@
         <p class="muted">Control project settings, invitations, active members, and project lifecycle.</p>
     </div>
     <div class="project-actions">
-        <a href="/project/{{ project_id }}/tasks" class="btn secondary">Task Board</a>
+        <a href="/project/{{ project_id }}/tasks" class="btn secondary">Job Board</a>
         <a href="/project/{{ project_id }}/analytics" class="btn secondary">Analytics</a>
     </div>
 </section>
@@ -21,6 +21,11 @@
     <div class="panel">
         <h2>Project Settings</h2>
         <form id="projectEditForm" class="advanced-form">
+            <label>Organization</label>
+            <select id="editProjectOrganization" required>
+                <option value="">Loading organizations…</option>
+            </select>
+
             <label>Project Name</label>
             <input type="text" id="editProjectName" required>
 
@@ -83,6 +88,8 @@
             <label>Role</label>
             <select id="memberRole">
                 <option value="Member">Member</option>
+                <option value="Team Lead">Team Lead</option>
+                <option value="Org Head">Org Head</option>
                 <option value="Admin">Admin</option>
             </select>
 
@@ -101,6 +108,38 @@
         <h2>Pending Invitations</h2>
         <div id="pendingMemberList" class="member-list"></div>
     </div>
+</section>
+
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Milestones</h2>
+        <p class="muted">Break the project into phases. Tasks can be linked to milestones for progress tracking.</p>
+        <form id="milestoneForm" class="advanced-form">
+            <label>Milestone Title</label>
+            <input type="text" id="milestoneTitle" maxlength="120" placeholder="Example: Phase 1 - Core Features" required>
+            <label>Description</label>
+            <textarea id="milestoneDescription" placeholder="What should this milestone cover?"></textarea>
+            <label>Deadline</label>
+            <input type="date" id="milestoneDeadline">
+            <label>Status</label>
+            <select id="milestoneStatus">
+                <option>Planned</option><option>Active</option><option>Completed</option><option>On Hold</option>
+            </select>
+            <button class="btn" type="submit">Add Milestone</button>
+        </form>
+        <p id="milestoneMessage" class="message"></p>
+    </div>
+    <div class="panel">
+        <h2>Milestone Progress</h2>
+        <div id="milestoneList" class="summary-list"></div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Available Organization Members</h2>
+    <p class="muted">These users already belong to the project organization. Invite them to the project before assigning tasks.</p>
+    <div id="orgCandidateList" class="member-list"></div>
 </section>
 {% endblock %}
 

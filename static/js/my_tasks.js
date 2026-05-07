@@ -1,5 +1,5 @@
-const myTaskList = document.getElementById("myTaskList");
-const taskSearch = document.getElementById("taskSearch");
+const myTaskList = document.getElementById("myTaskList") || document.getElementById("myJobList");
+const taskSearch = document.getElementById("taskSearch") || document.getElementById("jobSearch");
 const statusFilter = document.getElementById("statusFilter");
 const priorityFilter = document.getElementById("priorityFilter");
 const deadlineFilter = document.getElementById("deadlineFilter");
@@ -23,11 +23,11 @@ function priorityClass(priority) {
 function buildQuery() {
     const params = new URLSearchParams();
     params.set("my", "1");
-    if (taskSearch.value.trim()) params.set("search", taskSearch.value.trim());
-    if (statusFilter.value) params.set("status", statusFilter.value);
-    if (priorityFilter.value) params.set("priority", priorityFilter.value);
-    if (deadlineFilter.value) params.set("deadline", deadlineFilter.value);
-    if (sortFilter.value) params.set("sort", sortFilter.value);
+    if (taskSearch && taskSearch.value.trim()) params.set("search", taskSearch.value.trim());
+    if (statusFilter && statusFilter.value) params.set("status", statusFilter.value);
+    if (priorityFilter && priorityFilter.value) params.set("priority", priorityFilter.value);
+    if (deadlineFilter && deadlineFilter.value) params.set("deadline", deadlineFilter.value);
+    if (sortFilter && sortFilter.value) params.set("sort", sortFilter.value);
     return params.toString();
 }
 
@@ -94,7 +94,7 @@ async function loadMyTasks() {
     renderTasks(data.data.tasks || []);
 }
 
-[taskSearch, statusFilter, priorityFilter, deadlineFilter, sortFilter].forEach(el => {
+[taskSearch, statusFilter, priorityFilter, deadlineFilter, sortFilter].filter(Boolean).forEach(el => {
     const eventName = el === taskSearch ? "input" : "change";
     el.addEventListener(eventName, () => {
         clearTimeout(window.myTasksTimer);
@@ -102,12 +102,12 @@ async function loadMyTasks() {
     });
 });
 
-clearFilters.addEventListener("click", () => {
-    taskSearch.value = "";
-    statusFilter.value = "";
-    priorityFilter.value = "";
-    deadlineFilter.value = "";
-    sortFilter.value = "created_desc";
+if (clearFilters) clearFilters.addEventListener("click", () => {
+    if (taskSearch) taskSearch.value = "";
+    if (statusFilter) statusFilter.value = "";
+    if (priorityFilter) priorityFilter.value = "";
+    if (deadlineFilter) deadlineFilter.value = "";
+    if (sortFilter) sortFilter.value = "created_desc";
     loadMyTasks();
 });
 

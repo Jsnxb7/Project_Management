@@ -1,0 +1,41 @@
+Phase 1 + Phase 2 Relation Rules Update
+=======================================
+
+Implemented:
+
+1. Strong Organization Relations
+- Added user_org_memberships collection support.
+- Kept existing embedded organization members compatible.
+- Projects must belong to one organization before create/update.
+- Project members must also belong to the project organization.
+- Task organization_id is inherited from the project.
+- Task assignees must be explicit active project members.
+
+2. Role-Based Scope
+- Super User: global access to organizations, projects, users, dashboard warnings.
+- Org Head/Admin/Team Lead: organization-level project access and management.
+- Project Admin: project-level member/task/settings management.
+- Member: own project membership and assigned task workflows.
+
+3. Warning-Only Relation Violations
+- Relation and permission violations now return warning responses instead of hard error-style messages where appropriate.
+- Validation mistakes such as missing title/email still remain normal form validation.
+
+4. Warning Center
+- Added /api/dashboard/warnings.
+- Added /api/dashboard/role-scope.
+- Dashboard now shows role scope and relation warnings.
+- Warnings include users without org, projects without org, missing org/project managers, members not in project org, task/org mismatch, task assignee mismatch, overdue tasks.
+
+5. Suitable Options
+- Project Manage page now shows available organization members who are not yet project members.
+- Admins/Org Heads can invite these org members directly into the project.
+- Project members endpoint now separates active/pending project members from organization-only candidates.
+
+6. Migration / Repair
+- Updated scripts/repair_org_relations.py to sync the new membership collection.
+- Updated mongo_setup.py to create user_org_memberships and indexes.
+
+Recommended after deploy:
+python mongo_setup.py
+python scripts/repair_org_relations.py

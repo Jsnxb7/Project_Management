@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Portal Users | ProjectFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Super User</p>
+        <h1>Portal Users</h1>
+        <p class="muted">Create and manage the users who can access the project management portal.</p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Create Portal User</h2>
+        <form id="portalUserForm" class="advanced-form">
+            <label>Name</label>
+            <input id="portalName" type="text" placeholder="Full name" required>
+
+            <label>Email</label>
+            <input id="portalEmail" type="email" placeholder="user@example.com" required>
+
+            <label>Password</label>
+            <input id="portalPassword" type="password" placeholder="Temporary password" required>
+
+            <label>Portal Role</label>
+            <select id="portalRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+
+            <label>Assign to Organization</label>
+            <select id="portalOrganization">
+                <option value="">Create without org assignment</option>
+            </select>
+
+            <label>Organization Role</label>
+            <select id="portalOrgRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+
+            <button class="btn" type="submit">Create User →</button>
+        </form>
+        <p id="portalUserMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <h2>Assign Existing User to Org</h2>
+        <form id="assignOrgForm" class="advanced-form">
+            <label>User Email</label>
+            <input id="assignUserEmail" type="email" placeholder="existing-user@example.com" required>
+            <label>Organization</label>
+            <select id="assignOrganization" required></select>
+            <label>Organization Role</label>
+            <select id="assignOrgRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+            <button class="btn" type="submit">Assign to Organization →</button>
+        </form>
+        <p class="muted">Use this before inviting a user into a project. Project members must belong to that project’s organization.</p>
+    </div>
+
+    <div class="panel">
+        <h2>Portal Structure</h2>
+        <div class="role-stack">
+            <span class="role-pill super">Super User</span>
+            <span class="role-pill">Admin</span>
+            <span class="role-pill">Org Head</span>
+            <span class="role-pill">Team Lead</span>
+            <span class="role-pill">Member</span>
+        </div>
+        <p class="muted">The Super User can still create portal accounts manually, manage roles, and oversee the full portal. Public signup is also enabled for normal user onboarding.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="split compact">
+        <h2>All Portal Users</h2>
+        <input id="portalUserSearch" type="text" placeholder="Search users…">
+    </div>
+    <div id="portalUserList" class="member-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/portal_users.js') }}"></script>
+{% endblock %}

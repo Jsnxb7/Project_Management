@@ -39,11 +39,11 @@ function escapeHTML(value) {
         .replaceAll("'", "&#039;");
 }
 
-function toast(message, ok = true) {
+function toast(message, ok = true, warning = false) {
     const box = document.getElementById("toast");
     if (!box) return;
     box.textContent = message;
-    box.className = ok ? "toast show success" : "toast show error";
+    box.className = warning ? "toast show warning" : (ok ? "toast show success" : "toast show error");
     window.clearTimeout(window.toastTimer);
     window.toastTimer = window.setTimeout(() => {
         box.className = "toast";
@@ -64,6 +64,12 @@ function currentUser() {
         el.style.display = token ? "none" : "inline-flex";
     });
 
+    const me = currentUser();
+    const isSuper = me && (me.portal_role === "Super User" || me.role === "Super User");
+    document.querySelectorAll("[data-super-link]").forEach(el => {
+        el.style.display = token && isSuper ? "inline-flex" : "none";
+    });
+
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
@@ -73,7 +79,7 @@ function currentUser() {
         navToggle.addEventListener("click", () => navLinks.classList.toggle("open"));
     }
 
-    const protectedPaths = ["/dashboard", "/projects", "/notifications", "/profile", "/project/", "/my-tasks"];
+    const protectedPaths = ["/dashboard", "/projects", "/notifications", "/profile", "/project/", "/my-tasks", "/organizations", "/portal"] ;
     const path = window.location.pathname;
     if (protectedPaths.some(p => path.startsWith(p))) requireAuth();
 

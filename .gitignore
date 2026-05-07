@@ -6,3 +6,5 @@ env/
 instance/
 static/uploads/*
 !.gitkeep
+scripts/create_super_user.py
+scripts/repair_org_relations.py

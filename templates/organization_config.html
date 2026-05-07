@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Organization Config | ProjectFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Organization Config</p>
+        <h1>Organization Settings</h1>
+        <p class="muted">Modify organization profile details and workspace visibility.</p>
+    </div>
+    <a class="btn secondary" href="/organizations/{{ org_id }}">Back to Organization</a>
+</section>
+
+<section class="panel narrow-panel">
+    <form id="orgConfigForm" class="advanced-form">
+        <label>Organization Name</label>
+        <input id="configOrgName" type="text" required>
+
+        <label>Description</label>
+        <textarea id="configOrgDescription"></textarea>
+
+        <label>Visibility</label>
+        <select id="configOrgVisibility">
+            <option>Private</option>
+            <option>Internal</option>
+        </select>
+
+        <button class="btn" type="submit">Save Config</button>
+    </form>
+    <p id="orgConfigMessage" class="message"></p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>window.ORG_ID = "{{ org_id }}";</script>
+<script src="{{ url_for('static', filename='js/organization_config.js') }}"></script>
+{% endblock %}

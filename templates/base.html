@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}TaskFlow{% endblock %}</title>
+    <title>{% block title %}ProjectFlow{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -17,20 +17,21 @@
     <div class="page-overlay" aria-hidden="true"></div>
 
     <nav class="navbar glass-nav">
-        <a class="brand" href="/" aria-label="TaskFlow home">
-            <span class="brand-mark">TF</span>
-            <span>TaskFlow</span>
+        <a class="brand" href="/" aria-label="ProjectFlow home">
+            <span class="brand-mark">PF</span>
+            <span>ProjectFlow</span>
         </a>
         <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation">☰</button>
         <div class="nav-links" id="navLinks">
             <a data-auth-link href="/dashboard">Dashboard</a>
+            <a data-auth-link href="/organizations">Organizations</a>
             <a data-auth-link href="/projects">Projects</a>
-            <a data-auth-link href="/my-tasks">My Tasks</a>
+            <a data-auth-link href="/my-tasks">My Jobs</a>
+            <a data-super-link href="/portal/users">Portal Users</a>
             <a data-auth-link href="/notifications">Notifications</a>
             <a data-auth-link href="/profile">Profile</a>
             <a data-guest-link href="/login">Login</a>
             <a data-guest-link class="btn small" href="/signup">Get Started</a>
-            <button data-auth-link id="logoutBtn" class="btn small ghost" type="button">Logout</button>
         </div>
     </nav>
 

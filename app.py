@@ -66,6 +66,9 @@ def create_app():
     from routes.activity_routes import activity_bp
     from routes.attachment_routes import attachment_bp
     from routes.user_routes import user_bp
+    from routes.portal_routes import portal_bp
+    from routes.organization_routes import organization_bp
+    from routes.milestone_routes import milestone_bp
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
@@ -81,6 +84,9 @@ def create_app():
     app.register_blueprint(activity_bp, url_prefix="/api/activity")
     app.register_blueprint(attachment_bp, url_prefix="/api")
     app.register_blueprint(user_bp, url_prefix="/api/users")
+    app.register_blueprint(portal_bp, url_prefix="/api/portal")
+    app.register_blueprint(organization_bp, url_prefix="/api/organizations")
+    app.register_blueprint(milestone_bp, url_prefix="/api")
 
     @app.after_request
     def no_cache_for_app_pages(response):
@@ -91,6 +97,8 @@ def create_app():
             "/notifications",
             "/profile",
             "/my-tasks",
+            "/portal",
+            "/organizations",
         )
 
         if request.path.startswith(protected_prefixes):
@@ -146,6 +154,26 @@ def create_app():
     @protected_page
     def profile_page():
         return render_template("profile.html")
+
+    @app.route("/portal/users")
+    @protected_page
+    def portal_users_page():
+        return render_template("portal_users.html")
+
+    @app.route("/organizations")
+    @protected_page
+    def organizations_page():
+        return render_template("organizations.html")
+
+    @app.route("/organizations/<org_id>")
+    @protected_page
+    def organization_detail_page(org_id):
+        return render_template("organization_detail.html", org_id=org_id)
+
+    @app.route("/organizations/<org_id>/config")
+    @protected_page
+    def organization_config_page(org_id):
+        return render_template("organization_config.html", org_id=org_id)
 
     @app.route("/project/<project_id>/manage")
     @protected_page

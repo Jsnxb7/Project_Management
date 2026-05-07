@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Profile | TaskFlow{% endblock %}
+{% block title %}Profile | ProjectFlow{% endblock %}
 
 {% block content %}
 <section class="page-head">
@@ -44,8 +44,8 @@
         <strong id="profileProjects">0</strong>
     </article>
     <article class="stat-card">
-        <span>Assigned Tasks</span>
-        <strong id="profileTasks">0</strong>
+        <span>Assigned Jobs</span>
+        <strong id="profileJobs">0</strong>
     </article>
     <article class="stat-card">
         <span>Completed</span>
@@ -61,8 +61,30 @@
     <h2>Recent Activity</h2>
     <div id="profileActivity" class="activity-list"></div>
 </section>
+
+<section class="panel danger-soft">
+    <div class="split compact">
+        <div>
+            <h2>Session</h2>
+            <p class="muted">Log out securely from your current session.</p>
+        </div>
+        <button id="logoutProfileBtn" class="btn ghost danger-outline" type="button">Logout</button>
+    </div>
+</section>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+<script>
+document.getElementById("logoutProfileBtn")?.addEventListener("click", async () => {
+  const token = localStorage.getItem("token");
+  try {
+    await fetch("/api/auth/logout", {method: "POST", headers: token ? {"Authorization": `Bearer ${token}`} : {}});
+  } catch (e) {}
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  window.location.href = "/login";
+});
+</script>
 {% endblock %}

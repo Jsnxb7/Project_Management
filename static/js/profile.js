@@ -8,7 +8,7 @@ function tokenHeaders() {
 
 function showMessage(el, text, ok = false) {
     el.textContent = text;
-    el.className = ok ? "message success" : "message error";
+    el.className = warning ? "message warning" : (ok ? "message success" : "message error");
 }
 
 function formatDateTime(value) {

@@ -35,6 +35,7 @@ let selectedTaskId = null;
 let cachedMembers = [];
 let cachedTasks = [];
 let selectedTask = null;
+let cachedMilestones = [];
 
 function tokenHeaders(json = true) {
     const token = localStorage.getItem("token");
@@ -43,11 +44,11 @@ function tokenHeaders(json = true) {
     return headers;
 }
 
-function showMessage(text, ok = false) {
+function showMessage(text, ok = false, warning = false) {
     if (!message) return;
     message.textContent = text;
-    message.className = ok ? "message success" : "message error";
-    if (typeof toast === "function") toast(text, ok);
+    message.className = warning ? "message warning" : (ok ? "message success" : "message error");
+    if (typeof toast === "function") toast(text, ok, warning);
 }
 
 function formatDate(value) {
@@ -102,6 +103,33 @@ function updateMetrics(tasks) {
     document.getElementById("metricCompletionFill").style.width = `${rate}%`;
 }
 
+
+function fillMilestoneSelect(select, includeEmpty = true) {
+    if (!select) return;
+    select.innerHTML = includeEmpty ? `<option value="">No milestone</option>` : "";
+    cachedMilestones.filter(m => m.status !== "Archived").forEach(m => {
+        const option = document.createElement("option");
+        option.value = m.id;
+        option.textContent = `${m.title} (${m.progress || 0}%)`;
+        select.appendChild(option);
+    });
+}
+
+async function loadMilestones() {
+    const res = await fetch(`/api/project/${projectId}/milestones`, {headers: tokenHeaders()});
+    const data = await res.json();
+    if (data.success) {
+        cachedMilestones = data.data.milestones || [];
+        fillMilestoneSelect(document.getElementById("milestoneSelect"), true);
+        fillMilestoneSelect(document.getElementById("editMilestoneSelect"), true);
+    }
+}
+
+function milestoneName(id) {
+    const m = cachedMilestones.find(x => x.id === id);
+    return m ? m.title : "No milestone";
+}
+
 function fillMemberSelect(select, includeUnassigned = true) {
     if (!select) return;
     select.innerHTML = includeUnassigned ? `<option value="">Unassigned</option>` : "";
@@ -148,6 +176,7 @@ function taskCardHTML(task) {
             <span>👤 ${escapeHTML(task.assigned_to_name || "Unassigned")}</span>
             <span class="deadline-badge deadline-${deadline.state}">⏰ ${escapeHTML(deadline.text)}</span>
             <span class="status-pill">${escapeHTML(task.status)}</span>
+            <span>🏁 ${escapeHTML(milestoneName(task.milestone_id))}</span>
             <span>💬 ${task.comment_count || 0} • 📎 ${task.attachment_count || 0}</span>
         </div>
         <div class="tag-row">${labels || '<span class="tag muted-tag">No labels</span>'}</div>
@@ -212,7 +241,7 @@ async function loadTasks() {
 async function updateStatus(taskId, status) {
     const res = await fetch(`/api/tasks/${taskId}/status`, {method: "PATCH", headers: tokenHeaders(), body: JSON.stringify({status})});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) {
         await loadTasks();
         await loadActivity();
@@ -224,7 +253,7 @@ async function deleteTask(taskId) {
     if (!confirm("Delete this task?")) return;
     const res = await fetch(`/api/tasks/${taskId}`, {method: "DELETE", headers: tokenHeaders()});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) {
         await loadTasks();
         await loadActivity();
@@ -242,6 +271,7 @@ function renderTaskDetails(task, activity = []) {
             <div><strong>Deadline</strong><span class="deadline-badge deadline-${deadline.state}">${escapeHTML(deadline.text)} (${formatDate(task.due_date)})</span></div>
             <div><strong>Priority</strong><span class="${priorityClass(task.priority)}">${escapeHTML(task.priority)}</span></div>
             <div><strong>Status</strong><span class="status-pill">${escapeHTML(task.status)}</span></div>
+            <div><strong>Milestone</strong><span>${escapeHTML(milestoneName(task.milestone_id))}</span></div>
             <div><strong>Progress</strong><span>${task.subtask_completion_rate || 0}% checklist complete</span></div>
             <div><strong>Created</strong><span>${formatDateTime(task.created_at)}</span></div>
             <div><strong>Updated</strong><span>${formatDateTime(task.updated_at)}</span></div>
@@ -263,6 +293,20 @@ function fillEditForm(task) {
     document.getElementById("editPriority").value = task.priority || "Medium";
     document.getElementById("editStatus").value = task.status || "To Do";
     document.getElementById("editLabels").value = (task.labels || []).join(", ");
+    const editMilestone = document.getElementById("editMilestoneSelect");
+    if (editMilestone) editMilestone.value = task.milestone_id || "";
+}
+
+function showTaskModal() {
+    if (!taskModal) return;
+    taskModal.hidden = false;
+    document.body.classList.add("modal-open");
+}
+
+function hideTaskModal() {
+    if (!taskModal) return;
+    taskModal.hidden = true;
+    document.body.classList.remove("modal-open");
 }
 
 async function openTaskDetails(taskId, edit = false, keepModal = false) {
@@ -278,11 +322,11 @@ async function openTaskDetails(taskId, edit = false, keepModal = false) {
     renderTaskDetails(selectedTask, data.data.activity || []);
     fillEditForm(selectedTask);
     taskEditForm.hidden = !edit;
-    editTaskToggle.textContent = edit ? "Hide Editor" : "Edit Task";
+    editTaskToggle.textContent = edit ? "Hide Editor" : "Edit Job";
     await loadComments(taskId);
     await loadAttachments(taskId);
     await loadSubtasks(taskId);
-    if (!keepModal) taskModal.hidden = false;
+    if (!keepModal) showTaskModal();
 }
 
 async function saveTaskEdit(e) {
@@ -296,10 +340,11 @@ async function saveTaskEdit(e) {
         priority: document.getElementById("editPriority").value,
         status: document.getElementById("editStatus").value,
         labels: document.getElementById("editLabels").value.split(",").map(x => x.trim()).filter(Boolean),
+        milestone_id: document.getElementById("editMilestoneSelect")?.value || null,
     };
     const res = await fetch(`/api/tasks/${selectedTaskId}`, {method: "PUT", headers: tokenHeaders(), body: JSON.stringify(payload)});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) {
         await loadTasks();
         await loadActivity();
@@ -343,7 +388,7 @@ async function editComment(commentId) {
     if (next === null) return;
     const res = await fetch(`/api/comments/${commentId}`, {method: "PUT", headers: tokenHeaders(), body: JSON.stringify({comment_text: next})});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) loadComments(selectedTaskId);
 }
 
@@ -351,7 +396,7 @@ async function deleteComment(commentId) {
     if (!confirm("Delete this comment?")) return;
     const res = await fetch(`/api/comments/${commentId}`, {method: "DELETE", headers: tokenHeaders()});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) {
         loadComments(selectedTaskId);
         loadTasks();
@@ -393,7 +438,7 @@ async function deleteAttachment(attachmentId) {
     if (!confirm("Delete this attachment?")) return;
     const res = await fetch(`/api/attachments/${attachmentId}`, {method: "DELETE", headers: tokenHeaders()});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success && selectedTaskId) {
         await loadAttachments(selectedTaskId);
         await loadActivity();
@@ -460,10 +505,11 @@ if (taskForm) {
                 priority: document.getElementById("priority").value,
                 status: "To Do",
                 labels: (document.getElementById("taskLabels")?.value || "").split(",").map(label => label.trim()).filter(Boolean),
+                milestone_id: document.getElementById("milestoneSelect")?.value || null,
             }),
         });
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
         if (data.success) {
             taskForm.reset();
             await loadTasks();
@@ -479,7 +525,7 @@ if (commentForm) {
         const commentText = document.getElementById("commentText");
         const res = await fetch(`/api/tasks/${selectedTaskId}/comments`, {method: "POST", headers: tokenHeaders(), body: JSON.stringify({comment_text: commentText.value})});
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
         if (data.success) {
             commentText.value = "";
             await loadComments(selectedTaskId);
@@ -499,7 +545,7 @@ if (attachmentForm) {
         formData.append("file", fileInput.files[0]);
         const res = await fetch(`/api/tasks/${selectedTaskId}/attachments`, {method: "POST", headers: tokenHeaders(false), body: formData});
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
         if (data.success) {
             fileInput.value = "";
             await loadAttachments(selectedTaskId);
@@ -512,10 +558,13 @@ if (attachmentForm) {
 if (taskEditForm) taskEditForm.addEventListener("submit", saveTaskEdit);
 if (editTaskToggle) editTaskToggle.addEventListener("click", () => {
     taskEditForm.hidden = !taskEditForm.hidden;
-    editTaskToggle.textContent = taskEditForm.hidden ? "Edit Task" : "Hide Editor";
+    editTaskToggle.textContent = taskEditForm.hidden ? "Edit Job" : "Hide Editor";
 });
-if (closeTaskModal) closeTaskModal.addEventListener("click", () => taskModal.hidden = true);
-if (taskModal) taskModal.addEventListener("click", (e) => { if (e.target === taskModal) taskModal.hidden = true; });
+if (closeTaskModal) closeTaskModal.addEventListener("click", hideTaskModal);
+if (taskModal) taskModal.addEventListener("click", (e) => { if (e.target === taskModal) hideTaskModal(); });
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && taskModal && !taskModal.hidden) hideTaskModal();
+});
 
 if (subtaskForm) {
     subtaskForm.addEventListener("submit", async (e) => {
@@ -524,7 +573,7 @@ if (subtaskForm) {
         const input = document.getElementById("subtaskText");
         const res = await fetch(`/api/tasks/${selectedTaskId}/subtasks`, {method: "POST", headers: tokenHeaders(), body: JSON.stringify({text: input.value})});
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
         if (data.success) {
             input.value = "";
             await loadSubtasks(selectedTaskId);
@@ -555,5 +604,5 @@ if (clearFilters) {
     });
 }
 
-loadMembers().then(() => loadTasks());
+Promise.all([loadMembers(), loadMilestones()]).then(() => loadTasks());
 loadActivity();

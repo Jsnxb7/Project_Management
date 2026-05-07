@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Task Board | TaskFlow{% endblock %}
+{% block title %}Job Board | ProjectFlow{% endblock %}
 
 {% block content %}
 <section class="page-head split">
     <div>
-        <p class="eyebrow">Task Board</p>
-        <h1>Project Tasks</h1>
+        <p class="eyebrow">Job Board</p>
+        <h1>Project Jobs</h1>
         <p class="muted">Assign work, track deadlines, update progress, and review completion visually.</p>
     </div>
     <div class="project-actions">
-        <a href="/my-tasks" class="btn secondary">My Tasks</a>
+        <a href="/my-tasks" class="btn secondary">My Jobs</a>
         <a href="/projects" class="btn secondary">← Projects</a>
     </div>
 </section>
@@ -21,7 +21,7 @@
     <article class="metric-card"><span>Overdue</span><strong id="metricOverdue">0</strong></article>
     <article class="metric-card wide">
         <div class="split compact">
-            <span>Task Completion</span>
+            <span>Job Completion</span>
             <strong id="metricCompletion">0%</strong>
         </div>
         <div class="progress-track"><div id="metricCompletionFill" class="progress-fill"></div></div>
@@ -29,11 +29,11 @@
 </section>
 
 <section class="panel">
-    <h2>Create Task</h2>
-    <form id="taskForm" class="task-form advanced-form">
+    <h2>Create Job</h2>
+    <form id="taskForm" class="job-form advanced-form">
         <input type="hidden" id="projectId" value="{{ project_id }}">
 
-        <label>Task Title</label>
+        <label>Job Title</label>
         <input type="text" id="taskTitle" placeholder="Example: Build dashboard charts" required>
 
         <label>Description</label>
@@ -44,6 +44,9 @@
 
         <label>Assign To</label>
         <select id="assignedTo"><option value="">Unassigned</option></select>
+
+        <label>Milestone</label>
+        <select id="milestoneSelect"><option value="">No milestone</option></select>
 
         <label>Deadline</label>
         <input type="date" id="dueDate">
@@ -56,7 +59,7 @@
             <option value="Critical">Critical</option>
         </select>
 
-        <button class="btn" type="submit">Create Task</button>
+        <button class="btn" type="submit">Create Job</button>
     </form>
     <p id="message" class="message"></p>
 </section>
@@ -102,9 +105,9 @@
 
 <section class="details-grid">
     <div class="panel">
-        <h2>Task Comments</h2>
-        <p class="muted">Select a task from the board to view or add comments.</p>
-        <div id="selectedTaskTitle" class="selected-task-title">No task selected</div>
+        <h2>Job Comments</h2>
+        <p class="muted">Select a job from the board to view or add comments.</p>
+        <div id="selectedTaskTitle" class="selected-job-title">No job selected</div>
 
         <form id="commentForm" class="comment-form">
             <textarea id="commentText" placeholder="Write a comment…" maxlength="500"></textarea>
@@ -115,7 +118,7 @@
     </div>
 
     <div class="panel">
-        <h2>Task Attachments</h2>
+        <h2>Job Attachments</h2>
         <p class="muted">Allowed: PNG, JPG, GIF, PDF, DOC, DOCX, TXT, ZIP. Max 8 MB.</p>
 
         <form id="attachmentForm" class="attachment-form" enctype="multipart/form-data">
@@ -137,18 +140,19 @@
         <button class="modal-close" type="button" id="closeTaskModal">×</button>
         <div class="split compact">
             <div>
-                <p class="eyebrow">Task Details</p>
-                <h2 id="modalTaskTitle">Task</h2>
+                <p class="eyebrow">Job Details</p>
+                <h2 id="modalTaskTitle">Job</h2>
             </div>
-            <button class="btn small secondary" id="editTaskToggle" type="button">Edit Task</button>
+            <button class="btn small secondary" id="editTaskToggle" type="button">Edit Job</button>
         </div>
 
-        <div id="taskDetailView" class="task-detail-view"></div>
+        <div id="taskDetailView" class="job-detail-view"></div>
 
         <form id="taskEditForm" class="advanced-form" hidden>
             <label>Title</label><input id="editTaskTitle" required maxlength="100">
             <label>Description</label><textarea id="editTaskDescription" maxlength="1000"></textarea>
             <label>Assignee</label><select id="editAssignedTo"><option value="">Unassigned</option></select>
+            <label>Milestone</label><select id="editMilestoneSelect"><option value="">No milestone</option></select>
             <label>Deadline</label><input type="date" id="editDueDate">
             <label>Priority</label>
             <select id="editPriority">
@@ -170,10 +174,10 @@
                     <input id="subtaskText" placeholder="Add checklist item">
                     <button class="btn small" type="submit">Add</button>
                 </form>
-                <div id="subtaskList" class="subtask-list"></div>
+                <div id="subtaskList" class="subjob-list"></div>
             </div>
             <div>
-                <h3>Task Activity</h3>
+                <h3>Job Activity</h3>
                 <div id="taskActivityList" class="activity-list compact-list"></div>
             </div>
         </div>

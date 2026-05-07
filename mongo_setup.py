@@ -78,6 +78,11 @@ def create_collections(db):
         "notifications",
         "activity_logs",
         "attachments",
+        "organizations",
+        "login_sessions",
+        "subtasks",
+        "user_org_memberships",
+        "milestones",
     ]
 
     for name in collections:
@@ -99,12 +104,55 @@ def create_indexes(db):
         name="idx_user_active_status"
     )
 
+    db.users.create_index(
+        [("portal_role", ASCENDING)],
+        name="idx_user_portal_role"
+    )
+
+    # -----------------------------
+    # ORGANIZATIONS
+    # -----------------------------
+    db.organizations.create_index(
+        [("name", ASCENDING)],
+        name="idx_org_name"
+    )
+    db.organizations.create_index(
+        [("members.user_id", ASCENDING)],
+        name="idx_org_members_user_id"
+    )
+    db.organizations.create_index(
+        [("status", ASCENDING)],
+        name="idx_org_status"
+    )
+
+    # -----------------------------
+    # USER ↔ ORGANIZATION MEMBERSHIPS
+    # -----------------------------
+    db.user_org_memberships.create_index(
+        [("user_id", ASCENDING), ("organization_id", ASCENDING)],
+        unique=True,
+        name="unique_user_org_membership"
+    )
+    db.user_org_memberships.create_index(
+        [("organization_id", ASCENDING), ("role", ASCENDING), ("status", ASCENDING)],
+        name="idx_membership_org_role_status"
+    )
+    db.user_org_memberships.create_index(
+        [("user_id", ASCENDING), ("status", ASCENDING)],
+        name="idx_membership_user_status"
+    )
+
     # -----------------------------
     # PROJECTS
     # -----------------------------
     db.projects.create_index(
         [("created_by", ASCENDING)],
         name="idx_project_created_by"
+    )
+
+    db.projects.create_index(
+        [("organization_id", ASCENDING)],
+        name="idx_project_organization_id"
     )
 
     db.projects.create_index(
@@ -128,6 +176,10 @@ def create_indexes(db):
     db.tasks.create_index(
         [("project_id", ASCENDING)],
         name="idx_task_project_id"
+    )
+    db.tasks.create_index(
+        [("organization_id", ASCENDING)],
+        name="idx_task_organization_id"
     )
 
     db.tasks.create_index(
@@ -166,8 +218,29 @@ def create_indexes(db):
     )
 
     db.tasks.create_index(
+        [("milestone_id", ASCENDING)],
+        name="idx_task_milestone_id"
+    )
+
+    db.tasks.create_index(
         [("is_deleted", ASCENDING)],
         name="idx_task_soft_delete"
+    )
+
+    # -----------------------------
+    # MILESTONES
+    # -----------------------------
+    db.milestones.create_index(
+        [("project_id", ASCENDING)],
+        name="idx_milestone_project_id"
+    )
+    db.milestones.create_index(
+        [("organization_id", ASCENDING)],
+        name="idx_milestone_organization_id"
+    )
+    db.milestones.create_index(
+        [("deadline", ASCENDING)],
+        name="idx_milestone_deadline"
     )
 
     # -----------------------------
@@ -276,6 +349,8 @@ def seed_demo_data(db):
             "email": demo_email,
             "password_hash": bcrypt.generate_password_hash("Password123").decode("utf-8"),
             "profile_image": None,
+            "portal_role": "Super User",
+            "role": "Super User",
             "is_active": True,
             "created_at": now,
             "updated_at": now,
@@ -284,6 +359,30 @@ def seed_demo_data(db):
         print("[OK] Demo user created")
         print("     Email: admin@example.com")
         print("     Password: Password123")
+
+    existing_org = db.organizations.find_one({"name": "Demo Organization", "created_by": admin_id})
+    if existing_org:
+        print("[SKIP] Demo organization already exists")
+        org_id = existing_org["_id"]
+    else:
+        org_id = ObjectId()
+        db.organizations.insert_one({
+            "_id": org_id,
+            "name": "Demo Organization",
+            "description": "Default organization for the demo project and demo members.",
+            "visibility": "Internal",
+            "status": "active",
+            "created_by": admin_id,
+            "members": [{"user_id": admin_id, "role": "Admin", "status": "active", "joined_at": now}],
+            "created_at": now,
+            "updated_at": now,
+        })
+        db.user_org_memberships.update_one(
+            {"user_id": admin_id, "organization_id": org_id},
+            {"$set": {"user_id": admin_id, "organization_id": org_id, "role": "Admin", "status": "active", "updated_at": now}, "$setOnInsert": {"joined_at": now}},
+            upsert=True,
+        )
+        print("[OK] Demo organization created")
 
     existing_project = db.projects.find_one({"name": "Demo Project", "created_by": admin_id})
 
@@ -297,6 +396,7 @@ def seed_demo_data(db):
             "name": "Demo Project",
             "description": "Sample project for testing the Team Task Manager.",
             "created_by": admin_id,
+            "organization_id": org_id,
             "status": "active",
             "members": [
                 {
@@ -320,6 +420,7 @@ def seed_demo_data(db):
         db.tasks.insert_one({
             "_id": task_id,
             "project_id": project_id,
+            "organization_id": org_id,
             "title": "Create Login Page",
             "description": "Build the frontend login page and connect it to the Flask login API.",
             "assigned_to": admin_id,
@@ -366,12 +467,15 @@ def print_structure_summary(db):
 
     print("\nRecommended Collections:")
     print("- users")
+    print("- organizations")
     print("- projects")
     print("- tasks")
     print("- comments")
     print("- notifications")
     print("- activity_logs")
     print("- attachments")
+    print("- user_org_memberships")
+    print("- milestones")
 
 
 def main():

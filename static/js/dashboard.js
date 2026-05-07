@@ -11,6 +11,27 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
+function warningLabel(kind) {
+    return String(kind || "warning").replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderWarnings(items) {
+    const box = document.getElementById("warningList");
+    if (!box) return;
+    if (!items || !items.length) {
+        box.className = "warning-list muted";
+        box.textContent = "No relation warnings found.";
+        return;
+    }
+    box.className = "warning-list";
+    box.innerHTML = items.slice(0, 12).map(item => `
+        <div class="warning-item">
+            <span>${escapeHTML(warningLabel(item.kind))}</span>
+            <p>${escapeHTML(item.message)}</p>
+        </div>
+    `).join("");
+}
+
 async function loadDashboard() {
     if (!requireAuth()) return;
 
@@ -19,11 +40,13 @@ async function loadDashboard() {
 
     if (!data.success) {
         if (res.status === 401) window.location.href = "/login";
-        toast(data.message || "Could not load dashboard", false);
+        toast(data.message || "Could not load dashboard", false, data.status === "warning");
         return;
     }
 
     const d = data.data;
+    setText("portalRole", d.portal_role || "Member");
+    setText("workspaceScope", d.scope || "member");
     setText("totalProjects", d.total_projects ?? 0);
     setText("totalTasks", d.total_tasks ?? 0);
     setText("myTasks", d.my_tasks ?? 0);
@@ -38,4 +61,14 @@ async function loadDashboard() {
     if (fill) fill.style.width = `${Math.min(Number(d.completion_rate || 0), 100)}%`;
 }
 
+async function loadWarnings() {
+    if (!requireAuth()) return;
+    const res = await fetch("/api/dashboard/warnings", { headers: tokenHeaders() });
+    const data = await res.json();
+    if (!data.success) return;
+    setText("warningTotal", data.data.total ?? 0);
+    renderWarnings(data.data.warnings || []);
+}
+
 loadDashboard();
+loadWarnings();

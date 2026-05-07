@@ -2,11 +2,11 @@ const signupForm = document.getElementById("signupForm");
 const loginForm = document.getElementById("loginForm");
 const message = document.getElementById("message");
 
-function showMessage(text, ok = false) {
+function showMessage(text, ok = false, warning = false) {
     if (!message) return;
     message.textContent = text;
-    message.className = ok ? "message success" : "message error";
-    if (typeof toast === "function") toast(text, ok);
+    message.className = warning ? "message warning" : (ok ? "message success" : "message error");
+    if (typeof toast === "function") toast(text, ok, warning);
 }
 
 if (signupForm) {
@@ -32,7 +32,7 @@ if (signupForm) {
         });
 
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
 
         if (data.success) {
             setTimeout(() => window.location.href = "/login", 700);
@@ -54,7 +54,7 @@ if (loginForm) {
         });
 
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
 
         if (data.success) {
             localStorage.setItem("token", data.data.token);

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Project Analytics | TaskFlow{% endblock %}
+{% block title %}Project Analytics | ProjectFlow{% endblock %}
 
 {% block content %}
 <input type="hidden" id="projectId" value="{{ project_id }}">
@@ -10,12 +10,12 @@
         <p class="eyebrow">Analytics</p>
         <h1>Project Dashboard</h1>
     </div>
-    <a href="/project/{{ project_id }}/tasks" class="btn secondary">Task Board</a>
+    <a href="/project/{{ project_id }}/tasks" class="btn secondary">Job Board</a>
 </section>
 
 <section class="stats-grid">
     <article class="stat-card">
-        <span>Total Tasks</span>
+        <span>Total Jobs</span>
         <strong id="totalTasks">0</strong>
     </article>
     <article class="stat-card">
@@ -35,6 +35,27 @@
     </article>
 </section>
 
+
+<section class="stats-grid">
+    <article class="stat-card wide">
+        <span>Project Health</span>
+        <strong id="projectHealth">Healthy</strong>
+        <p class="muted" id="healthDetails">Risk score: 0</p>
+    </article>
+    <article class="stat-card">
+        <span>Blocked</span>
+        <strong id="blockedTasks">0</strong>
+    </article>
+    <article class="stat-card">
+        <span>Unassigned</span>
+        <strong id="unassignedTasks">0</strong>
+    </article>
+    <article class="stat-card">
+        <span>Milestones</span>
+        <strong id="milestoneCount">0</strong>
+    </article>
+</section>
+
 <section class="details-grid">
     <div class="panel">
         <h2>Status Summary</h2>
@@ -47,14 +68,20 @@
     </div>
 </section>
 
+
 <section class="panel">
-    <h2>Tasks Per User</h2>
+    <h2>Milestone Progress</h2>
+    <div id="milestoneSummary" class="member-list"></div>
+</section>
+
+<section class="panel">
+    <h2>Workload Per User</h2>
     <div id="userSummary" class="member-list"></div>
 </section>
 
 <section class="panel">
     <h2>Overdue Tasks</h2>
-    <div id="overdueList" class="task-list"></div>
+    <div id="overdueList" class="job-list"></div>
 </section>
 {% endblock %}
 

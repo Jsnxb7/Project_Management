@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Organization | ProjectFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Organization</p>
+        <h1 id="orgTitle">Loading organization…</h1>
+        <p id="orgDescriptionText" class="muted"></p>
+    </div>
+    <div class="page-actions">
+        <a class="btn secondary" href="/organizations">All Organizations</a>
+        <a class="btn" id="orgConfigLink" href="/organizations/{{ org_id }}/config">Config</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card"><span>Total Members</span><strong id="orgMemberCount">0</strong></article>
+    <article class="stat-card"><span>Projects</span><strong id="orgProjectCount">0</strong></article>
+    <article class="stat-card"><span>Your Role</span><strong id="orgUserRole">-</strong></article>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Add Member</h2>
+        <form id="orgMemberForm" class="advanced-form">
+            <label>Portal User Email</label>
+            <input id="orgMemberEmail" type="email" placeholder="existing-user@example.com" required>
+            <label>Organization Role</label>
+            <select id="orgMemberRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+            <button class="btn" type="submit">Add Member →</button>
+        </form>
+        <p id="orgDetailMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <h2>Projects in this Org</h2>
+        <div id="orgProjectList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Members</h2>
+    <div id="orgMemberList" class="member-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>window.ORG_ID = "{{ org_id }}";</script>
+<script src="{{ url_for('static', filename='js/organization_detail.js') }}"></script>
+{% endblock %}

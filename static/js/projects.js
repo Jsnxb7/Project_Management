@@ -4,22 +4,45 @@ const invitationList = document.getElementById("invitationList");
 const message = document.getElementById("message");
 const projectSearch = document.getElementById("projectSearch");
 let cachedProjects = [];
+let cachedOrganizations = [];
 
 function tokenHeaders() {
     const token = localStorage.getItem("token");
     return {"Content-Type": "application/json", "Authorization": `Bearer ${token}`};
 }
 
-function showMessage(text, ok = false) {
+function showMessage(text, ok = false, warning = false) {
     if (!message) return;
     message.textContent = text;
-    message.className = ok ? "message success" : "message error";
-    if (typeof toast === "function") toast(text, ok);
+    message.className = warning ? "message warning" : (ok ? "message success" : "message error");
+    if (typeof toast === "function") toast(text, ok, warning);
 }
 
 function formatDate(value) {
     if (!value) return "Not set";
     return new Date(value).toLocaleDateString();
+}
+
+function renderOrganizationOptions() {
+    const select = document.getElementById("projectOrganization");
+    if (!select) return;
+    select.innerHTML = '<option value="">Select organization</option>';
+    cachedOrganizations.forEach(org => {
+        const option = document.createElement("option");
+        option.value = org.id;
+        option.textContent = `${org.name} (${org.user_role || "Member"})`;
+        select.appendChild(option);
+    });
+}
+
+async function loadOrganizations() {
+    const res = await fetch("/api/organizations", {headers: tokenHeaders()});
+    const data = await res.json();
+    if (data.success) {
+        cachedOrganizations = data.data.organizations || [];
+        renderOrganizationOptions();
+        if (!cachedOrganizations.length) showMessage("Warning: create or join an organization before creating projects.", false, true);
+    }
 }
 
 function renderProjects(projects) {
@@ -30,6 +53,7 @@ function renderProjects(projects) {
     }
     projects.forEach(project => {
         const tags = (project.tags || []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join("");
+        const relationWarnings = (project.relation_warnings || []).map(w => `<div class="relation-warning">⚠ ${escapeHTML(w)}</div>`).join("");
         const card = document.createElement("article");
         card.className = "project-card rich-project-card";
         card.innerHTML = `
@@ -39,6 +63,7 @@ function renderProjects(projects) {
             </div>
             <p>${escapeHTML(project.description || "No description added.")}</p>
             <div class="project-facts">
+                <span>🏢 ${escapeHTML(project.organization_name || "Organization")}</span>
                 <span>👤 ${escapeHTML(project.owner_name || "Owner")}</span>
                 <span>📌 ${escapeHTML(project.workflow_status || "Active")}</span>
                 <span>🗂️ ${escapeHTML(project.category || "General")}</span>
@@ -47,9 +72,10 @@ function renderProjects(projects) {
                 <span>⏰ ${formatDate(project.deadline)}</span>
             </div>
             <div class="progress-block"><div class="split compact"><span>Completion</span><strong>${project.progress || 0}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${project.progress || 0}%"></div></div></div>
+            ${relationWarnings}
             <div class="tag-row">${tags || '<span class="tag muted-tag">No tags</span>'}</div>
             <div class="project-actions">
-                <a class="btn small project-open" href="/project/${project.id}/tasks">Open Tasks</a>
+                <a class="btn small project-open" href="/project/${project.id}/tasks">Open Jobs</a>
                 <a class="btn small secondary" href="/project/${project.id}/manage">Manage</a>
                 <a class="btn small secondary" href="/project/${project.id}/analytics">Analytics</a>
             </div>
@@ -110,7 +136,7 @@ async function loadInvitations() {
 async function respondInvite(projectId, action) {
     const res = await fetch(`/api/projects/${projectId}/invitations/respond`, {method: "POST", headers: tokenHeaders(), body: JSON.stringify({action})});
     const data = await res.json();
-    showMessage(data.message, data.success);
+    showMessage(data.message, data.success, data.warning);
     if (data.success) {
         await loadInvitations();
         await loadProjects();
@@ -124,6 +150,7 @@ if (projectForm) {
             method: "POST",
             headers: tokenHeaders(),
             body: JSON.stringify({
+                organization_id: document.getElementById("projectOrganization").value,
                 name: document.getElementById("projectName").value.trim(),
                 description: document.getElementById("projectDescription").value.trim(),
                 start_date: document.getElementById("projectStartDate").value || null,
@@ -136,7 +163,7 @@ if (projectForm) {
             }),
         });
         const data = await res.json();
-        showMessage(data.message, data.success);
+        showMessage(data.message, data.success, data.warning);
         if (data.success) {
             projectForm.reset();
             await loadProjects();
@@ -144,6 +171,6 @@ if (projectForm) {
     });
 
     if (projectSearch) projectSearch.addEventListener("input", filterProjects);
-    loadProjects();
+    loadOrganizations().then(() => loadProjects());
     loadInvitations();
 }

@@ -4,7 +4,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 
 from app import bcrypt
-from database.db import users_collection, projects_collection, tasks_collection, activity_logs_collection
+from database.db import users_collection, projects_collection, tasks_collection, activity_logs_collection, organizations_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
 
@@ -17,6 +17,8 @@ def public_user(user):
         "name": user.get("name"),
         "email": user.get("email"),
         "profile_image": user.get("profile_image"),
+        "portal_role": user.get("portal_role", user.get("role", "Member")),
+        "role": user.get("portal_role", user.get("role", "Member")),
         "created_at": user["created_at"].isoformat() if user.get("created_at") else None,
         "last_login": user["last_login"].isoformat() if user.get("last_login") else None,
     }
@@ -31,9 +33,13 @@ def get_profile():
     if not user:
         return fail("User not found", 404)
 
+    org_ids = [o["_id"] for o in organizations_collection.find({"members": {"$elemMatch": {"user_id": user_id, "status": "active"}}}, {"_id": 1})]
     total_projects = projects_collection.count_documents({
         "status": "active",
-        "members": {"$elemMatch": {"user_id": user_id, "status": "active"}}
+        "$or": [
+            {"members": {"$elemMatch": {"user_id": user_id, "status": "active"}}},
+            {"organization_id": {"$in": org_ids}},
+        ]
     })
 
     assigned_tasks = tasks_collection.count_documents({
@@ -67,6 +73,7 @@ def get_profile():
             "total_projects": total_projects,
             "assigned_tasks": assigned_tasks,
             "completed_tasks": completed_tasks,
+            "organizations": len(org_ids),
         },
         "recent_activity": activities
     })

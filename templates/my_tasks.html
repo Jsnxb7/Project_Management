@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}My Tasks | TaskFlow{% endblock %}
+{% block title %}My Jobs | ProjectFlow{% endblock %}
 
 {% block content %}
 <section class="page-head split">
     <div>
         <p class="eyebrow">Personal Workload</p>
-        <h1>My Tasks</h1>
-        <p class="muted">Tasks assigned to you with deadline and completion indicators.</p>
+        <h1>My Jobs</h1>
+        <p class="muted">Jobs assigned to you with deadline and completion indicators.</p>
     </div>
     <a href="/projects" class="btn secondary">← Projects</a>
 </section>
@@ -29,7 +29,7 @@
 <section class="panel filter-panel">
     <h2>Search, Filter &amp; Sort</h2>
     <div class="filter-grid rich-filter-grid">
-        <input type="text" id="taskSearch" placeholder="Search my tasks…">
+        <input type="text" id="taskSearch" placeholder="Search my jobs…">
         <select id="statusFilter">
             <option value="">All Statuses</option>
             <option>To Do</option><option>In Progress</option><option>Done</option>
@@ -54,7 +54,7 @@
     </div>
 </section>
 
-<section id="myTaskList" class="task-list standalone-task-list"></section>
+<section id="myTaskList" class="job-list standalone-job-list"></section>
 {% endblock %}
 
 {% block scripts %}

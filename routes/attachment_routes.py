@@ -7,7 +7,7 @@ from bson import ObjectId
 from werkzeug.utils import secure_filename
 
 from database.db import attachments_collection, tasks_collection
-from utils.response import ok, fail
+from utils.response import ok, fail, warn
 from services.permission_service import get_project_for_user, is_project_admin, to_object_id
 from services.activity_service import log_activity
 from services.notification_service import create_notification
@@ -62,10 +62,10 @@ def upload_attachment(task_id):
 
     project, is_admin, is_assigned = can_access_task(task, user_id)
     if not project:
-        return fail("Access denied", 403)
+        return warn("Warning: you do not have permission to access this item.")
 
     if not is_admin and not is_assigned:
-        return fail("Members can upload files only to assigned tasks", 403)
+        return warn("Warning: members can upload files only to their assigned tasks.")
 
     if "file" not in request.files:
         return fail("No file uploaded")
@@ -101,6 +101,7 @@ def upload_attachment(task_id):
     result = attachments_collection.insert_one({
         "task_id": task_obj_id,
         "project_id": task["project_id"],
+        "organization_id": task.get("organization_id"),
         "uploaded_by": ObjectId(user_id),
         "file_name": original_name,
         "stored_name": stored_name,
@@ -146,7 +147,7 @@ def get_attachments(task_id):
 
     project = get_project_for_user(str(task["project_id"]), user_id)
     if not project:
-        return fail("Access denied", 403)
+        return warn("Warning: you do not have permission to access this item.")
 
     attachments = list(attachments_collection.find({"task_id": task_obj_id}).sort("uploaded_at", -1))
     return ok("Attachments fetched", {"attachments": [attachment_public(a) for a in attachments]})
@@ -171,11 +172,11 @@ def delete_attachment(attachment_id):
 
     project = get_project_for_user(str(attachment["project_id"]), user_id)
     if not project:
-        return fail("Access denied", 403)
+        return warn("Warning: you do not have permission to access this item.")
 
     can_delete = attachment["uploaded_by"] == ObjectId(user_id) or is_project_admin(project, user_id)
     if not can_delete:
-        return fail("Only uploader or project admin can delete this attachment", 403)
+        return warn("Warning: only the uploader, Project Admin, Org Head, Team Lead, or Super User can delete this attachment.")
 
     upload_dir = os.path.join(current_app.root_path, current_app.config.get("UPLOAD_FOLDER", "static/uploads"))
     file_path = os.path.join(upload_dir, attachment.get("stored_name", ""))

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Organizations | ProjectFlow{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Organizations</p>
+        <h1>Organizations</h1>
+        <p class="muted">Create workspaces, add portal users, and control who can manage projects.</p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Create Organization</h2>
+        <form id="orgForm" class="advanced-form">
+            <label>Organization Name</label>
+            <input id="orgName" type="text" placeholder="Example: Acme Development" required>
+
+            <label>Description</label>
+            <textarea id="orgDescription" placeholder="What does this organization manage?"></textarea>
+
+            <label>Visibility</label>
+            <select id="orgVisibility">
+                <option selected>Private</option>
+                <option>Internal</option>
+            </select>
+
+            <button class="btn" type="submit">Create Organization →</button>
+        </form>
+        <p id="orgMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <h2>Organization Rules</h2>
+        <p class="muted">A user must first exist in the portal. After that, Super User, Admin, or Org Head can add that user into an organization as Admin, Org Head, Team Lead, or Member.</p>
+    </div>
+</section>
+
+<section id="orgList" class="card-grid"></section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/organizations.js') }}"></script>
+{% endblock %}

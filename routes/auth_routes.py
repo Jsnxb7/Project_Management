@@ -8,10 +8,10 @@ from database.db import users_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
 
+
 auth_bp = Blueprint("auth_bp", __name__)
-# In-memory JWT denylist for assignment-level logout protection.
-# For production, move this to Redis or MongoDB with expiry.
 TOKEN_BLOCKLIST = set()
+PORTAL_ROLES = ["Super User", "Admin", "Org Head", "Team Lead", "Member"]
 
 
 def user_public(user):
@@ -20,11 +20,18 @@ def user_public(user):
         "name": user.get("name"),
         "email": user.get("email"),
         "profile_image": user.get("profile_image"),
+        "portal_role": user.get("portal_role", user.get("role", "Member")),
+        "role": user.get("portal_role", user.get("role", "Member")),
+        "is_active": user.get("is_active", True),
     }
 
 
 @auth_bp.post("/signup")
 def signup():
+    """Public signup is enabled.
+    The very first account becomes the Super User.
+    All later public signups become regular Member portal users.
+    """
     data = request.get_json() or {}
 
     name = (data.get("name") or "").strip()
@@ -37,11 +44,11 @@ def signup():
         return fail("Valid email is required")
     if not valid_password(password):
         return fail("Password must be at least 8 characters and contain letters and numbers")
+    if users_collection.find_one({"email": email}):
+        return fail("An account with this email already exists", 409)
 
-    existing = users_collection.find_one({"email": email})
-    if existing:
-        return fail("User already exists", 409)
-
+    existing_users = users_collection.count_documents({})
+    portal_role = "Super User" if existing_users == 0 else "Member"
     password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     now = datetime.now(timezone.utc)
 
@@ -50,13 +57,17 @@ def signup():
         "email": email,
         "password_hash": password_hash,
         "profile_image": None,
+        "portal_role": portal_role,
+        "role": portal_role,
         "is_active": True,
+        "created_by": None,
         "created_at": now,
         "updated_at": now,
         "last_login": None,
     })
 
-    return ok("User registered successfully", {"id": str(result.inserted_id)}, 201)
+    message = "Super User account created successfully" if portal_role == "Super User" else "Account created successfully"
+    return ok(message, {"id": str(result.inserted_id), "portal_role": portal_role}, 201)
 
 
 @auth_bp.post("/login")
@@ -81,6 +92,7 @@ def login():
     session.clear()
     session["user_id"] = str(user["_id"])
     session["user_name"] = user.get("name")
+    session["portal_role"] = user.get("portal_role", user.get("role", "Member"))
     session.permanent = True
 
     token = create_access_token(identity=str(user["_id"]))
