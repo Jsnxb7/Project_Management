@@ -5,6 +5,9 @@ A full-stack collaborative task management web application built with **Flask**,
 The application is designed as a simplified real-world alternative to tools like Trello, Asana, and Jira, while keeping the codebase suitable for academic/project submission, deployment, and further extension.
 
 ---
+## Super-user Access
+For super-user access credentials mail to: shouryagarg2012@gmail.com
+---
 
 ## Table of Contents
 
