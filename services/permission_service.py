@@ -48,3 +48,16 @@ def user_in_project(project, target_user_id):
         # Super User can manage globally, but task assignment still works best when they are explicit project members.
         return active_project_member(project, target_user_id) is not None
     return can_assign_task_to(project, target_user_id)
+
+
+def can_assign_jobs(project, user_id):
+    """Only Super User and explicit active project Team Lead can create/reassign/delete jobs."""
+    if is_super_user_id(user_id):
+        return True
+    member = active_project_member(project, user_id)
+    return bool(member and member.get("role") == "Team Lead")
+
+
+def can_manage_project_members(project, user_id):
+    """Project membership can be controlled by Super User or the project Team Lead."""
+    return can_assign_jobs(project, user_id)

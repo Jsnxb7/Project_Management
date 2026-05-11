@@ -5,6 +5,8 @@ const message = document.getElementById("message");
 const projectSearch = document.getElementById("projectSearch");
 let cachedProjects = [];
 let cachedOrganizations = [];
+let projectSearchTimer = null;
+let projectLimit = 100;
 
 function tokenHeaders() {
     const token = localStorage.getItem("token");
@@ -68,7 +70,7 @@ function renderProjects(projects) {
                 <span>📌 ${escapeHTML(project.workflow_status || "Active")}</span>
                 <span>🗂️ ${escapeHTML(project.category || "General")}</span>
                 <span>🔒 ${escapeHTML(project.visibility || "Private")}</span>
-                <span>👥 ${(project.active_members || project.members || []).length} active member(s)</span>
+                <span>👥 ${project.active_member_count ?? (project.active_members || project.members || []).length} active member(s)</span>
                 <span>⏰ ${formatDate(project.deadline)}</span>
             </div>
             <div class="progress-block"><div class="split compact"><span>Completion</span><strong>${project.progress || 0}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${project.progress || 0}%"></div></div></div>
@@ -106,17 +108,23 @@ function renderInvitations(invitations) {
     document.querySelectorAll("[data-invite-action]").forEach(btn => btn.addEventListener("click", async () => respondInvite(btn.dataset.projectId, btn.dataset.inviteAction)));
 }
 
+function renderProjectMeta(data) {
+    const meta = document.getElementById("projectListMeta");
+    if (!meta || !data) return;
+    meta.textContent = `Showing ${data.visible ?? 0} of ${data.total ?? 0} project(s)`;
+}
+
 function filterProjects() {
-    const q = (projectSearch?.value || "").trim().toLowerCase();
-    if (!q) return renderProjects(cachedProjects);
-    renderProjects(cachedProjects.filter(project =>
-        `${project.name || ""} ${project.description || ""} ${project.category || ""} ${(project.tags || []).join(" ")}`.toLowerCase().includes(q)
-    ));
+    // Search is now server-side, so the browser does not need to keep every project in memory.
+    loadProjects();
 }
 
 async function loadProjects() {
     if (!requireAuth()) return;
-    const res = await fetch("/api/projects", {headers: tokenHeaders()});
+    const params = new URLSearchParams({limit: String(projectLimit)});
+    const q = (projectSearch?.value || "").trim();
+    if (q) params.set("q", q);
+    const res = await fetch(`/api/projects?${params.toString()}`, {headers: tokenHeaders()});
     const data = await res.json();
     if (!data.success) {
         if (res.status === 401) window.location.href = "/login";
@@ -124,7 +132,8 @@ async function loadProjects() {
         return;
     }
     cachedProjects = data.data.projects || [];
-    filterProjects();
+    renderProjects(cachedProjects);
+    renderProjectMeta(data.data);
 }
 
 async function loadInvitations() {
@@ -170,7 +179,7 @@ if (projectForm) {
         }
     });
 
-    if (projectSearch) projectSearch.addEventListener("input", filterProjects);
+    if (projectSearch) projectSearch.addEventListener("input", () => { clearTimeout(projectSearchTimer); projectSearchTimer = setTimeout(filterProjects, 250); });
     loadOrganizations().then(() => loadProjects());
     loadInvitations();
 }

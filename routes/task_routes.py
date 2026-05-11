@@ -16,7 +16,7 @@ from database.db import (
 from utils.response import ok, fail, warn
 from services.activity_service import log_activity
 from services.notification_service import create_notification
-from services.permission_service import get_project_for_user, is_project_admin, user_in_project, to_object_id
+from services.permission_service import get_project_for_user, is_project_admin, user_in_project, to_object_id, can_assign_jobs
 from services.relation_service import get_managed_org_ids_for_user
 
 task_bp = Blueprint("task_bp", __name__)
@@ -141,8 +141,8 @@ def create_task():
     project = get_project_for_user(project_id, user_id)
     if not project:
         return fail("Project not found or access denied", 404)
-    if not is_project_admin(project, user_id):
-        return warn("Warning: only Project Admin, Org Head, Team Lead, or Super User can create tasks.")
+    if not can_assign_jobs(project, user_id):
+        return warn("Warning: only the project Team Lead or Super User can create and assign jobs.")
     if assigned_to and not user_in_project(project, assigned_to):
         return warn("Warning: assigned user must be an active member of the project organization/project before a task can be assigned to them.")
     milestone_obj_id = None
@@ -336,7 +336,7 @@ def update_task(task_id):
     if not project:
         return warn("Warning: you do not have permission to access this task.")
 
-    is_admin = is_project_admin(project, user_id)
+    is_admin = can_assign_jobs(project, user_id)
     assigned_to_current_user = task.get("assigned_to") == ObjectId(user_id)
     updates = {}
 
@@ -472,8 +472,8 @@ def delete_task(task_id):
     project = get_project_for_user(str(task["project_id"]), user_id)
     if not project:
         return warn("Warning: you do not have permission to access this task.")
-    if not is_project_admin(project, user_id):
-        return warn("Warning: only Project Admin, Org Head, Team Lead, or Super User can delete tasks.")
+    if not can_assign_jobs(project, user_id):
+        return warn("Warning: only the project Team Lead or Super User can delete jobs.")
     tasks_collection.update_one({"_id": task_obj_id}, {"$set": {"is_deleted": True, "updated_at": datetime.now(timezone.utc)}})
     log_activity(task["project_id"], user_id, "task_deleted", f'Task "{task.get("title", "Untitled Task")}" was deleted.', task_obj_id)
     return ok("Task deleted successfully")

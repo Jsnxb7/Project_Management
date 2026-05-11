@@ -28,6 +28,8 @@ function renderOrgs() {
             <p>${escapeHTML(org.description || "No description added.")}</p>
             <div class="project-facts">
                 <span>👥 ${org.member_count || 0} member(s)</span>
+                <span>📁 ${org.project_count ?? 0} project(s)</span>
+                <span>👨‍👩‍👧‍👦 ${org.team_count ?? 0} team(s)</span>
                 <span>🛡️ ${escapeHTML(org.user_role || "Member")}</span>
             </div>
             <div class="project-actions">
@@ -44,6 +46,8 @@ async function loadOrgs() {
     const data = await res.json();
     if (!data.success) return msg(data.message);
     orgs = data.data.organizations || [];
+    const meta = document.getElementById("orgListMeta");
+    if (meta) meta.textContent = `Showing ${data.data.visible ?? orgs.length} of ${data.data.total ?? orgs.length} organization(s)`;
     renderOrgs();
 }
 if (orgForm) {

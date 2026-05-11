@@ -1,0 +1,3 @@
+name,email,password,portal_role,organization_name,org_role,team_name,team_role,is_active
+Asha Mehta,asha@example.com,TempPass123,Member,Engineering,Member,Frontend,Member,true
+Rohan Singh,rohan@example.com,TempPass123,Team Lead,Engineering,Team Lead,Frontend,Team Lead,true

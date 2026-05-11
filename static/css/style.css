@@ -1901,3 +1901,190 @@ body.modal-open {
     width: min(100%, 96vw) !important;
   }
 }
+
+/* ── BULK USER IMPORT ───────────────────────────────────────── */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.data-table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  vertical-align: top;
+  text-align: left;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.data-table input,
+.data-table select {
+  min-width: 120px;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.86rem;
+}
+
+.data-table tr.invalid-row {
+  background: rgba(255, 94, 168, 0.045);
+}
+
+.relation-warning.danger {
+  border-color: rgba(255, 94, 168, 0.35);
+  color: #ffbdd8;
+}
+
+.check-row {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.check-row input {
+  width: auto !important;
+}
+
+.mini-stats {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: 1rem;
+}
+
+.mini-stats div {
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mini-stats b {
+  display: block;
+  font-size: 1.55rem;
+}
+
+.mini-stats span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Fast bulk import review */
+.issue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 18px;
+}
+.issue-card,
+.success-card,
+.soft-panel {
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    padding: 16px;
+}
+.issue-card.warning {
+    border-color: rgba(255, 200, 90, 0.45);
+}
+.issue-card.danger {
+    border-color: rgba(255, 100, 130, 0.45);
+}
+.success-card {
+    border-color: rgba(70, 255, 180, 0.45);
+}
+.compact-list {
+    max-height: 320px;
+    overflow: auto;
+    padding-right: 6px;
+}
+.compact-list > div {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.compact-list > div:last-child {
+    border-bottom: none;
+}
+
+
+/* ── BULK IMPORT PROGRESS ───────────────────────── */
+.import-progress-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 215, 239, 0.075);
+  border: 1px solid var(--border);
+}
+.import-progress-panel.hidden { display: none; }
+.import-progress-track { height: 10px; margin-top: 0.8rem; }
+.import-step-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+.import-step-row span {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 0.35rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+.import-step-row span.active {
+  color: var(--text);
+  border-color: var(--border-b);
+  background: var(--teal-dim);
+}
+.import-step-row span.done {
+  color: var(--text-2);
+  border-color: rgba(255, 215, 239, 0.22);
+  background: rgba(255, 215, 239, 0.12);
+}
+@media (max-width: 720px) {
+  .import-step-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── PORTAL USER DIRECTORY OPTIMIZATIONS ───────────────── */
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.toolbar-right input { min-width: min(360px, 100%); }
+.toolbar-right select { width: auto; min-width: 110px; }
+.optimized-stats { margin: 1rem 0; }
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.pagination-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 720px) {
+  .toolbar-right { justify-content: stretch; }
+  .toolbar-right input, .toolbar-right select { width: 100%; }
+}

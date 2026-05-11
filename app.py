@@ -69,6 +69,7 @@ def create_app():
     from routes.portal_routes import portal_bp
     from routes.organization_routes import organization_bp
     from routes.milestone_routes import milestone_bp
+    from routes.team_routes import team_bp
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
@@ -87,6 +88,7 @@ def create_app():
     app.register_blueprint(portal_bp, url_prefix="/api/portal")
     app.register_blueprint(organization_bp, url_prefix="/api/organizations")
     app.register_blueprint(milestone_bp, url_prefix="/api")
+    app.register_blueprint(team_bp, url_prefix="/api/teams")
 
     @app.after_request
     def no_cache_for_app_pages(response):
@@ -99,6 +101,7 @@ def create_app():
             "/my-tasks",
             "/portal",
             "/organizations",
+            "/teams",
         )
 
         if request.path.startswith(protected_prefixes):
@@ -159,6 +162,21 @@ def create_app():
     @protected_page
     def portal_users_page():
         return render_template("portal_users.html")
+
+    @app.route("/portal/import-users")
+    @protected_page
+    def portal_import_users_page():
+        return render_template("portal_import_users.html")
+
+    @app.route("/teams")
+    @protected_page
+    def teams_page():
+        return render_template("teams.html")
+
+    @app.route("/teams/<team_id>")
+    @protected_page
+    def team_detail_page(team_id):
+        return render_template("team_detail.html", team_id=team_id)
 
     @app.route("/organizations")
     @protected_page

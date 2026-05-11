@@ -7,6 +7,7 @@
     <div>
         <p class="eyebrow">Super User</p>
         <h1>Portal Users</h1>
+        <a class="btn small secondary" href="/portal/import-users">Bulk Import Users</a>
         <p class="muted">Create and manage the users who can access the project management portal.</p>
     </div>
 </section>
@@ -84,10 +85,23 @@
 
 <section class="panel">
     <div class="split compact">
-        <h2>All Portal Users</h2>
-        <input id="portalUserSearch" type="text" placeholder="Search users…">
+        <div>
+            <h2>Portal Users Directory</h2>
+            <p id="portalUserInfo" class="muted">Only the first few users are loaded for speed. Search to fetch more from the server.</p>
+        </div>
+        <div class="toolbar-right">
+            <input id="portalUserSearch" type="text" placeholder="Search name, email, or role…">
+            <select id="portalUserLimit" title="Users per page">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
     </div>
+    <div id="portalUserStats" class="mini-stats optimized-stats"></div>
     <div id="portalUserList" class="member-list"></div>
+    <div id="portalUserPager" class="pagination-row"></div>
 </section>
 {% endblock %}
 

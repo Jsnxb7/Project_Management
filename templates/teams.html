@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Teams | ProjectFlow{% endblock %}
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Teams</p>
+        <h1>Organization Teams</h1>
+        <p class="muted">Create teams under organizations. Assign a whole team to a project so every team member gets project access automatically.</p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Create Team</h2>
+        <form id="teamForm" class="advanced-form">
+            <label>Organization</label>
+            <select id="teamOrganization" required><option value="">Loading organizations…</option></select>
+            <label>Team Name</label>
+            <input id="teamName" maxlength="100" required placeholder="Example: Frontend Squad">
+            <label>Description</label>
+            <textarea id="teamDescription" placeholder="What does this team handle?"></textarea>
+            <label>Team Lead Email</label>
+            <input id="teamLeadEmail" type="email" placeholder="lead@example.com">
+            <button class="btn" type="submit">Create Team →</button>
+        </form>
+        <p id="teamMessage" class="message"></p>
+    </div>
+    <div class="panel">
+        <h2>Find Teams</h2>
+        <p class="muted">Search teams by name, lead, or organization.</p>
+        <input id="teamSearch" placeholder="Search teams…">
+        <div class="relation-warning">Rules: teams sit below organizations; each team needs one lead; whole-team project assignment is only for Org Heads/Admins or Super Users.</div>
+    </div>
+</section>
+
+<p id="teamListMeta" class="muted"></p>
+<section id="teamList" class="card-grid"></section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/teams.js') }}"></script>{% endblock %}

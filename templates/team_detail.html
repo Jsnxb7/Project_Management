@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Team Detail | ProjectFlow{% endblock %}
+{% block content %}
+<input type="hidden" id="teamId" value="{{ team_id }}">
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Team Management</p>
+        <h1 id="teamTitle">Loading team…</h1>
+        <p id="teamDescriptionText" class="muted"></p>
+    </div>
+    <div class="page-actions">
+        <a class="btn secondary" href="/teams">All Teams</a>
+    </div>
+</section>
+<section class="stats-grid">
+    <article class="stat-card"><span>Organization</span><strong id="teamOrgName">-</strong></article>
+    <article class="stat-card"><span>Lead</span><strong id="teamLeadName">-</strong></article>
+    <article class="stat-card"><span>Members</span><strong id="teamMemberCount">0</strong></article>
+    <article class="stat-card"><span>Projects</span><strong id="teamProjectCount">0</strong></article>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Add Member</h2>
+        <p class="muted">Adding a member also syncs them to all currently assigned team projects.</p>
+        <form id="teamMemberForm" class="advanced-form">
+            <label>User Email</label>
+            <input id="teamMemberEmail" type="email" required placeholder="member@example.com">
+            <button class="btn" type="submit">Add to Team</button>
+        </form>
+        <p id="teamMemberMessage" class="message"></p>
+    </div>
+    <div class="panel">
+        <h2>Assign Project to Team</h2>
+        <p class="muted">When a project is assigned here, every active team member becomes an active project member.</p>
+        <form id="teamProjectForm" class="advanced-form">
+            <label>Project</label>
+            <select id="teamProjectSelect"><option value="">Loading projects…</option></select>
+            <button class="btn" type="submit">Assign Whole Team</button>
+        </form>
+        <p id="teamProjectMessage" class="message"></p>
+    </div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Team Members</h2>
+        <div id="teamMemberList" class="member-list"></div>
+    </div>
+    <div class="panel">
+        <h2>Assigned Projects</h2>
+        <div id="teamProjectList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Available Organization Members</h2>
+    <p class="muted">These users belong to the organization but are not in this team yet.</p>
+    <div id="teamCandidateList" class="member-list"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team_detail.js') }}"></script>{% endblock %}

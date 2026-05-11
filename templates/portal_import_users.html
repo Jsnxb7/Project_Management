@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Bulk User Import{% endblock %}
+{% block content %}
+<section class="hero compact-hero">
+    <div>
+        <p class="eyebrow">Super User Console</p>
+        <h1>Fast Bulk Add Users</h1>
+        <p>Upload JSON, CSV, XLSX, or SQLite DB files. The system now shows only conflicts and invalid rows, not every user.</p>
+    </div>
+    <a class="btn small secondary" href="/portal/users">← Back to Portal Users</a>
+</section>
+
+<section class="grid-2">
+    <div class="panel">
+        <h2>1. Upload & Analyze</h2>
+        <form id="bulkImportForm" class="advanced-form" enctype="multipart/form-data">
+            <label>User File</label>
+            <input id="bulkUserFile" type="file" accept=".json,.csv,.xlsx,.db,.sqlite,.sqlite3" required>
+            <p class="muted">Required columns: <b>name</b>, <b>email</b>. Optional: password, portal_role, organization_id/name, org_role, team_id/name, team_role, is_active.</p>
+
+            <label>Default Temporary Password</label>
+            <input id="defaultPassword" type="text" placeholder="Use if password column is missing">
+
+            <label>Default Portal Role</label>
+            <select id="defaultPortalRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+
+            <label>Default Organization</label>
+            <select id="defaultOrganization">
+                <option value="">No default organization</option>
+            </select>
+
+            <label>Default Organization Role</label>
+            <select id="defaultOrgRole">
+                <option>Admin</option>
+                <option>Org Head</option>
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+
+            <label>Default Team</label>
+            <select id="defaultTeam">
+                <option value="">No default team</option>
+            </select>
+
+            <label>Default Team Role</label>
+            <select id="defaultTeamRole">
+                <option>Team Lead</option>
+                <option selected>Member</option>
+            </select>
+
+            <label class="check-row"><input id="requireOrg" type="checkbox"> Warn if a row has no organization</label>
+            <label class="check-row"><input id="requireTeam" type="checkbox"> Warn if a row has no team</label>
+
+            <button class="btn" type="submit">Analyze File →</button>
+        </form>
+        <p id="bulkImportMessage" class="message"></p>
+
+        <div id="bulkProgressPanel" class="import-progress-panel hidden">
+            <div class="split compact">
+                <div>
+                    <strong id="bulkProgressTitle">Preparing import</strong>
+                    <p id="bulkProgressText" class="muted">Waiting for file action.</p>
+                </div>
+                <span id="bulkProgressPercent" class="tag">0%</span>
+            </div>
+            <div class="progress-track import-progress-track">
+                <div id="bulkProgressFill" class="progress-fill"></div>
+            </div>
+            <div id="bulkProgressSteps" class="import-step-row">
+                <span data-step="upload">Upload</span>
+                <span data-step="parse">Parse</span>
+                <span data-step="validate">Validate</span>
+                <span data-step="resolve">Resolve</span>
+                <span data-step="commit">Commit</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Streamlined Import Rules</h2>
+        <div class="role-stack">
+            <span class="role-pill super">Super User only</span>
+            <span class="role-pill">Issues-only review</span>
+            <span class="role-pill">Quick-create orgs</span>
+            <span class="role-pill">Quick-create teams</span>
+            <span class="role-pill">Skip invalid rows</span>
+        </div>
+        <p class="muted">Valid rows are kept hidden for speed. Only conflicts, duplicates, existing emails, warnings, and invalid rows are displayed.</p>
+        <div id="bulkStats" class="stats-grid mini-stats"></div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="split compact">
+        <div>
+            <h2>2. Conflicts & Quick Actions</h2>
+            <p class="muted">Use quick-create for missing organizations/teams, or skip invalid/existing rows during import.</p>
+        </div>
+        <div class="task-actions">
+            <button id="commitRowsBtn" class="btn small" type="button" disabled>Import Ready Rows</button>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="panel soft-panel">
+            <h3>Quick Fix Options</h3>
+            <label class="check-row"><input id="createMissingOrgs" type="checkbox"> Create missing organizations automatically</label>
+            <label class="check-row"><input id="createMissingTeams" type="checkbox"> Create missing teams automatically</label>
+            <label class="check-row"><input id="skipInvalidRows" type="checkbox" checked> Skip invalid rows instead of blocking whole import</label>
+            <label class="check-row"><input id="skipExistingUsers" type="checkbox" checked> Skip emails that already exist</label>
+            <p class="muted">Teams can be auto-created only when the row has an existing organization, a default organization, or auto-create organizations is enabled.</p>
+        </div>
+        <div class="panel soft-panel">
+            <h3>Import Summary</h3>
+            <div id="importSummary" class="activity-list compact-list">
+                <p class="empty">Analyze a file to see the summary.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="issuesPanel" class="issue-grid"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/portal_import_users.js') }}"></script>
+{% endblock %}

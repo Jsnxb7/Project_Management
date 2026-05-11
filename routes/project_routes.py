@@ -2,12 +2,13 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 from datetime import datetime, timezone
+import re
 
-from database.db import projects_collection, users_collection, tasks_collection, organizations_collection
+from database.db import projects_collection, users_collection, tasks_collection, organizations_collection, teams_collection
 from utils.response import ok, fail, warn
 from services.activity_service import log_activity
 from services.notification_service import create_notification
-from services.permission_service import get_project_for_user, is_project_admin, user_in_project, to_object_id, get_org_role
+from services.permission_service import get_project_for_user, is_project_admin, user_in_project, to_object_id, get_org_role, can_manage_project_members
 from services.relation_service import get_managed_org_ids_for_user, get_active_org_ids_for_user, sync_user_org_membership, can_manage_project
 
 project_bp = Blueprint("project_bp", __name__)
@@ -98,8 +99,57 @@ def project_progress(project_id):
     return round((done / total) * 100, 2) if total else 0
 
 
-def member_public(member):
-    user = users_collection.find_one({"_id": member.get("user_id")})
+def task_progress_map(project_ids):
+    ids = list({pid for pid in project_ids if pid})
+    progress = {pid: {"total": 0, "done": 0, "progress": 0} for pid in ids}
+    if not ids:
+        return progress
+    for row in tasks_collection.aggregate([
+        {"$match": {"project_id": {"$in": ids}, "is_deleted": False}},
+        {"$group": {"_id": {"project_id": "$project_id", "status": "$status"}, "count": {"$sum": 1}}},
+    ]):
+        pid = row["_id"].get("project_id")
+        status = row["_id"].get("status")
+        count = row.get("count", 0)
+        progress.setdefault(pid, {"total": 0, "done": 0, "progress": 0})
+        progress[pid]["total"] += count
+        if status == "Done":
+            progress[pid]["done"] += count
+    for pid, values in progress.items():
+        values["progress"] = round((values["done"] / values["total"]) * 100, 2) if values["total"] else 0
+    return progress
+
+
+def user_map_for_ids(user_ids):
+    ids = list({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
+    return {u["_id"]: u for u in users_collection.find({"_id": {"$in": ids}}, {"name": 1, "email": 1})}
+
+
+def org_map_for_ids(org_ids):
+    ids = list({oid for oid in org_ids if oid})
+    if not ids:
+        return {}
+    return {o["_id"]: o for o in organizations_collection.find({"_id": {"$in": ids}}, {"name": 1})}
+
+
+def team_map_for_project(projects):
+    team_ids = set()
+    for project in projects:
+        for assignment in project.get("team_assignments", []):
+            if assignment.get("team_id"):
+                team_ids.add(assignment.get("team_id"))
+    if not team_ids:
+        return {}
+    return {t["_id"]: t for t in teams_collection.find({"_id": {"$in": list(team_ids)}, "status": "active"}, {"name": 1})}
+
+
+def member_public(member, users_lookup=None):
+    users_lookup = users_lookup or {}
+    user = users_lookup.get(member.get("user_id"))
+    if user is None and member.get("user_id"):
+        user = users_collection.find_one({"_id": member.get("user_id")}, {"name": 1, "email": 1})
     return {
         "user_id": str(member["user_id"]),
         "name": user.get("name") if user else "Unknown User",
@@ -111,10 +161,24 @@ def member_public(member):
     }
 
 
-def project_public(project):
-    owner = users_collection.find_one({"_id": project.get("created_by")})
-    org = organizations_collection.find_one({"_id": project.get("organization_id")}) if project.get("organization_id") else None
-    return {
+def project_public(project, include_members=True, progress_lookup=None, org_lookup=None, owner_lookup=None, teams_lookup=None):
+    owner_lookup = owner_lookup or {}
+    org_lookup = org_lookup or {}
+    teams_lookup = teams_lookup or {}
+    owner = owner_lookup.get(project.get("created_by"))
+    if owner is None and project.get("created_by"):
+        owner = users_collection.find_one({"_id": project.get("created_by")}, {"name": 1})
+    org = org_lookup.get(project.get("organization_id"))
+    if org is None and project.get("organization_id"):
+        org = organizations_collection.find_one({"_id": project.get("organization_id")}, {"name": 1})
+    active_members = [m for m in project.get("members", []) if m.get("status") == "active"]
+    pending_members = [m for m in project.get("members", []) if m.get("status") == "pending"]
+    progress_value = None
+    if progress_lookup is not None:
+        progress_value = progress_lookup.get(project["_id"], {}).get("progress", 0)
+    else:
+        progress_value = project_progress(project["_id"])
+    data = {
         "id": str(project["_id"]),
         "name": project.get("name"),
         "description": project.get("description"),
@@ -131,13 +195,35 @@ def project_public(project):
         "category": project.get("category", "General"),
         "visibility": project.get("visibility", "Private"),
         "tags": project.get("tags", []),
-        "progress": project_progress(project["_id"]),
-        "members": [member_public(m) for m in project.get("members", []) if m.get("status") in ["active", "pending"]],
-        "active_members": [member_public(m) for m in project.get("members", []) if m.get("status") == "active"],
-        "pending_members": [member_public(m) for m in project.get("members", []) if m.get("status") == "pending"],
+        "progress": progress_value,
+        "member_count": len(active_members) + len(pending_members),
+        "active_member_count": len(active_members),
+        "pending_member_count": len(pending_members),
+        "teams": [{"id": str(tid), "name": teams_lookup.get(tid, {}).get("name", "Team")} for tid in [ta.get("team_id") for ta in project.get("team_assignments", []) if ta.get("team_id")] if tid in teams_lookup] if project.get("team_assignments") else [],
         "created_at": project["created_at"].isoformat() if project.get("created_at") else None,
         "updated_at": project["updated_at"].isoformat() if project.get("updated_at") else None,
     }
+    if include_members:
+        user_ids = [m.get("user_id") for m in project.get("members", []) if m.get("status") in ["active", "pending"]]
+        users_lookup = user_map_for_ids(user_ids)
+        data["members"] = [member_public(m, users_lookup) for m in project.get("members", []) if m.get("status") in ["active", "pending"]]
+        data["active_members"] = [member_public(m, users_lookup) for m in active_members]
+        data["pending_members"] = [member_public(m, users_lookup) for m in pending_members]
+    else:
+        # Keep frontend compatibility without sending full member objects on list pages.
+        data["members"] = []
+        data["active_members"] = [None] * len(active_members)
+        data["pending_members"] = [None] * len(pending_members)
+    return data
+
+
+def projects_public_bulk(projects, include_members=False):
+    project_ids = [p["_id"] for p in projects]
+    progress_lookup = task_progress_map(project_ids)
+    owner_lookup = user_map_for_ids([p.get("created_by") for p in projects])
+    org_lookup = org_map_for_ids([p.get("organization_id") for p in projects])
+    teams_lookup = team_map_for_project(projects)
+    return [project_public(p, include_members=include_members, progress_lookup=progress_lookup, org_lookup=org_lookup, owner_lookup=owner_lookup, teams_lookup=teams_lookup) for p in projects]
 
 
 @project_bp.post("")
@@ -212,6 +298,11 @@ def my_projects():
     user_id = ObjectId(get_jwt_identity())
     user = current_user(user_id)
     org_id = request.args.get("organization_id")
+    q = (request.args.get("q") or "").strip()
+    try:
+        limit = min(max(int(request.args.get("limit", 100) or 100), 1), 200)
+    except Exception:
+        limit = 100
 
     query = {"status": "active"}
     if org_id:
@@ -219,17 +310,30 @@ def my_projects():
         if not org_obj_id:
             return fail("Invalid organization id")
         query["organization_id"] = org_obj_id
+    if q:
+        query["$and"] = [{"$or": [
+            {"name": {"$regex": re.escape(q), "$options": "i"}},
+            {"description": {"$regex": re.escape(q), "$options": "i"}},
+            {"category": {"$regex": re.escape(q), "$options": "i"}},
+            {"tags": {"$regex": re.escape(q), "$options": "i"}},
+        ]}]
 
     if is_super_user(user):
-        projects = list(projects_collection.find(query).sort("updated_at", -1))
+        total = projects_collection.count_documents(query)
+        projects = list(projects_collection.find(query).sort("updated_at", -1).limit(limit))
     else:
         managed_org_ids = get_managed_org_ids_for_user(user_id)
-        query["$or"] = [
+        visibility_rule = {"$or": [
             {"members": {"$elemMatch": {"user_id": user_id, "status": "active"}}},
             {"organization_id": {"$in": managed_org_ids}},
-        ]
-        projects = list(projects_collection.find(query).sort("updated_at", -1))
-    return ok("Projects fetched", {"projects": [project_public(p) for p in projects]})
+        ]}
+        if "$and" in query:
+            query["$and"].append(visibility_rule)
+        else:
+            query.update(visibility_rule)
+        total = projects_collection.count_documents(query)
+        projects = list(projects_collection.find(query).sort("updated_at", -1).limit(limit))
+    return ok("Projects fetched", {"projects": projects_public_bulk(projects, include_members=False), "total": total, "visible": len(projects), "limit": limit})
 
 
 @project_bp.get("/invitations")
@@ -240,7 +344,7 @@ def my_invitations():
         "status": "active",
         "members": {"$elemMatch": {"user_id": user_id, "status": "pending"}}
     }).sort("updated_at", -1))
-    return ok("Invitations fetched", {"invitations": [project_public(p) for p in projects]})
+    return ok("Invitations fetched", {"invitations": projects_public_bulk(projects, include_members=False)})
 
 
 @project_bp.post("/<project_id>/invitations/respond")
@@ -317,8 +421,8 @@ def invite_member(project_id):
     project = get_project_for_user(project_id, user_id)
     if not project:
         return fail("Project not found or access denied", 404)
-    if not is_project_admin(project, user_id):
-        return warn("Warning: only Project Admin, Org Head, Team Lead, or Super User can invite project members.")
+    if not can_manage_project_members(project, user_id):
+        return warn("Warning: only the project Team Lead or Super User can add members to this project.")
 
     user_to_add = users_collection.find_one({"email": email, "is_active": True})
     if not user_to_add:
@@ -355,18 +459,21 @@ def get_members(project_id):
     project = get_project_for_user(project_id, user_id)
     if not project:
         return fail("Project not found or access denied", 404)
-    members = [member_public(m) for m in project.get("members", []) if m.get("status") in ["active", "pending"]]
+    project_members_raw = [m for m in project.get("members", []) if m.get("status") in ["active", "pending"]]
+    project_user_lookup = user_map_for_ids([m.get("user_id") for m in project_members_raw])
+    members = [member_public(m, project_user_lookup) for m in project_members_raw]
     org_candidates = []
-    if project.get("organization_id") and is_project_admin(project, user_id):
-        org = organizations_collection.find_one({"_id": project.get("organization_id")})
+    if project.get("organization_id") and can_manage_project_members(project, user_id):
+        org = organizations_collection.find_one({"_id": project.get("organization_id")}, {"members": 1})
         if org:
             seen = {str(m["user_id"]) for m in members}
-            for org_member in org.get("members", []):
-                if org_member.get("status", "active") == "active" and str(org_member.get("user_id")) not in seen:
-                    pub = member_public(org_member)
-                    pub["status"] = "available_in_org"
-                    org_candidates.append(pub)
-    return ok("Members fetched", {"members": members, "org_candidates": org_candidates})
+            candidate_raw = [m for m in org.get("members", []) if m.get("status", "active") == "active" and str(m.get("user_id")) not in seen]
+            candidate_lookup = user_map_for_ids([m.get("user_id") for m in candidate_raw])
+            for org_member in candidate_raw[:100]:
+                pub = member_public(org_member, candidate_lookup)
+                pub["status"] = "available_in_org"
+                org_candidates.append(pub)
+    return ok("Members fetched", {"members": members, "org_candidates": org_candidates, "org_candidate_total": len(org_candidates)})
 
 
 @project_bp.put("/<project_id>")
@@ -468,8 +575,8 @@ def remove_member(project_id, target_user_id):
     project = get_project_for_user(project_id, user_id)
     if not project:
         return fail("Project not found or access denied", 404)
-    if not is_project_admin(project, user_id):
-        return warn("Warning: only Project Admin, Org Head, Team Lead, or Super User can remove project members.")
+    if not can_manage_project_members(project, user_id):
+        return warn("Warning: only the project Team Lead or Super User can remove project members.")
 
     target_obj_id = to_object_id(target_user_id)
     if not target_obj_id:
@@ -502,8 +609,8 @@ def change_member_role(project_id, target_user_id):
     project = get_project_for_user(project_id, user_id)
     if not project:
         return fail("Project not found or access denied", 404)
-    if not is_project_admin(project, user_id):
-        return warn("Warning: only Project Admin, Org Head, Team Lead, or Super User can change project member roles.")
+    if not can_manage_project_members(project, user_id):
+        return warn("Warning: only the project Team Lead or Super User can change project member roles.")
 
     target_obj_id = to_object_id(target_user_id)
     if not target_obj_id:

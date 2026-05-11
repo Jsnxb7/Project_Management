@@ -2,8 +2,9 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 from datetime import datetime, timezone
+import re
 
-from database.db import organizations_collection, users_collection, projects_collection, activity_logs_collection
+from database.db import organizations_collection, users_collection, projects_collection, activity_logs_collection, teams_collection
 from utils.response import ok, fail, warn
 from services.relation_service import sync_user_org_membership, mark_user_org_membership_removed
 
@@ -68,24 +69,57 @@ def can_manage_org(user, org=None):
     return org_role(org, user["_id"]) in ["Admin", "Org Head"]
 
 
-def member_public(member):
-    user = users_collection.find_one({"_id": member.get("user_id")})
-    project_count = projects_collection.count_documents({
-        "members": {"$elemMatch": {"user_id": member.get("user_id"), "status": {"$in": ["active", "pending"]}}},
-        "status": "active"
-    }) if member.get("user_id") else 0
+def active_members(org):
+    return [m for m in org.get("members", []) if m.get("status", "active") == "active" and m.get("user_id")]
+
+
+def user_map_for_ids(user_ids):
+    ids = list({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
+    return {u["_id"]: u for u in users_collection.find({"_id": {"$in": ids}}, {"name": 1, "email": 1, "portal_role": 1, "is_active": 1})}
+
+
+def project_count_map_for_org(org_obj_id, user_ids):
+    ids = list({uid for uid in user_ids if uid})
+    counts = {uid: 0 for uid in ids}
+    if not ids:
+        return counts
+    # One query for every visible member instead of one count query per member.
+    projects = projects_collection.find({
+        "organization_id": org_obj_id,
+        "status": "active",
+        "members": {"$elemMatch": {"user_id": {"$in": ids}, "status": {"$in": ["active", "pending"]}}}
+    }, {"members.user_id": 1, "members.status": 1})
+    wanted = set(ids)
+    for project in projects:
+        seen = set()
+        for member in project.get("members", []):
+            uid = member.get("user_id")
+            if uid in wanted and uid not in seen and member.get("status") in ["active", "pending"]:
+                counts[uid] = counts.get(uid, 0) + 1
+                seen.add(uid)
+    return counts
+
+
+def member_public(member, user_lookup=None, project_counts=None):
+    user_lookup = user_lookup or {}
+    project_counts = project_counts or {}
+    user_id = member.get("user_id")
+    user = user_lookup.get(user_id)
     return {
-        "user_id": str(member.get("user_id")),
+        "user_id": str(user_id),
         "name": user.get("name") if user else "Unknown User",
         "email": user.get("email") if user else "",
         "role": member.get("role", "Member"),
         "status": member.get("status", "active"),
         "joined_at": member.get("joined_at").isoformat() if member.get("joined_at") else None,
-        "project_count": project_count,
+        "project_count": project_counts.get(user_id, 0),
     }
 
 
-def org_public(org, user=None):
+def org_summary(org, user=None, project_count=None, team_count=None):
+    members = active_members(org)
     return {
         "id": str(org["_id"]),
         "name": org.get("name"),
@@ -93,26 +127,87 @@ def org_public(org, user=None):
         "status": org.get("status", "active"),
         "visibility": org.get("visibility", "Private"),
         "created_by": str(org.get("created_by")) if org.get("created_by") else None,
-        "members": [member_public(m) for m in org.get("members", []) if m.get("status", "active") == "active"],
-        "member_count": len([m for m in org.get("members", []) if m.get("status", "active") == "active"]),
+        # Important: list pages return counts only. Full members are loaded only on the detail page.
+        "member_count": len(members),
+        "project_count": project_count,
+        "team_count": team_count,
         "user_role": "Super User" if user and is_super_user(user) else (org_role(org, user["_id"]) if user else None),
         "created_at": org.get("created_at").isoformat() if org.get("created_at") else None,
         "updated_at": org.get("updated_at").isoformat() if org.get("updated_at") else None,
     }
 
 
+def org_detail_payload(org, user=None, members_limit=25, members_q=""):
+    members = active_members(org)
+    total_members = len(members)
+    q = (members_q or "").strip().lower()
+    member_ids = [m.get("user_id") for m in members]
+    lookup = user_map_for_ids(member_ids)
+
+    if q:
+        def matches(member):
+            u = lookup.get(member.get("user_id"), {})
+            hay = f"{u.get('name', '')} {u.get('email', '')} {member.get('role', '')}".lower()
+            return q in hay
+        members = [m for m in members if matches(m)]
+
+    filtered_members = len(members)
+    members = members[:members_limit]
+    visible_ids = [m.get("user_id") for m in members]
+    counts = project_count_map_for_org(org["_id"], visible_ids)
+
+    projects = list(projects_collection.find(
+        {"organization_id": org["_id"], "status": "active"},
+        {"name": 1, "workflow_status": 1, "priority": 1, "updated_at": 1}
+    ).sort("updated_at", -1).limit(50))
+
+    data = org_summary(
+        org,
+        user,
+        project_count=projects_collection.count_documents({"organization_id": org["_id"], "status": "active"}),
+        team_count=teams_collection.count_documents({"organization_id": org["_id"], "status": {"$ne": "deleted"}}),
+    )
+    data["members"] = [member_public(m, lookup, counts) for m in members]
+    data["members_visible"] = len(data["members"])
+    data["members_filtered"] = filtered_members
+    data["members_total"] = total_members
+    data["members_limit"] = members_limit
+    data["projects"] = [{"id": str(p["_id"]), "name": p.get("name"), "workflow_status": p.get("workflow_status", "Active"), "priority": p.get("priority", "Medium")} for p in projects]
+    data["projects_visible"] = len(projects)
+    return data
+
+
 @organization_bp.get("")
 @jwt_required()
 def list_orgs():
     me = current_user()
-    if is_super_user(me):
-        orgs = list(organizations_collection.find({"status": {"$ne": "deleted"}}).sort("updated_at", -1))
-    else:
-        orgs = list(organizations_collection.find({
-            "status": {"$ne": "deleted"},
-            "members": {"$elemMatch": {"user_id": me["_id"], "status": "active"}}
-        }).sort("updated_at", -1))
-    return ok("Organizations fetched", {"organizations": [org_public(o, me) for o in orgs]})
+    q = (request.args.get("q") or "").strip()
+    limit = min(max(int(request.args.get("limit", 100) or 100), 1), 200)
+    query = {"status": {"$ne": "deleted"}}
+    if q:
+        query["$or"] = [
+            {"name": {"$regex": re.escape(q), "$options": "i"}},
+            {"description": {"$regex": re.escape(q), "$options": "i"}},
+        ]
+    if not is_super_user(me):
+        query["members"] = {"$elemMatch": {"user_id": me["_id"], "status": "active"}}
+    orgs = list(organizations_collection.find(query, {"members": 1, "name": 1, "description": 1, "status": 1, "visibility": 1, "created_by": 1, "created_at": 1, "updated_at": 1}).sort("updated_at", -1).limit(limit))
+    org_ids = [o["_id"] for o in orgs]
+    project_counts = {o["_id"]: 0 for o in orgs}
+    team_counts = {o["_id"]: 0 for o in orgs}
+    if org_ids:
+        for row in projects_collection.aggregate([
+            {"$match": {"organization_id": {"$in": org_ids}, "status": "active"}},
+            {"$group": {"_id": "$organization_id", "count": {"$sum": 1}}},
+        ]):
+            project_counts[row["_id"]] = row["count"]
+        for row in teams_collection.aggregate([
+            {"$match": {"organization_id": {"$in": org_ids}, "status": {"$ne": "deleted"}}},
+            {"$group": {"_id": "$organization_id", "count": {"$sum": 1}}},
+        ]):
+            team_counts[row["_id"]] = row["count"]
+    total = organizations_collection.count_documents(query)
+    return ok("Organizations fetched", {"organizations": [org_summary(o, me, project_counts.get(o["_id"], 0), team_counts.get(o["_id"], 0)) for o in orgs], "total": total, "visible": len(orgs)})
 
 
 @organization_bp.post("")
@@ -160,11 +255,12 @@ def org_detail(org_id):
         return fail("Organization not found", 404)
     if not is_super_user(me) and not org_role(org, me["_id"]):
         return warn("Warning: you do not have permission to access this organization.")
-    projects = list(projects_collection.find({"organization_id": org_obj_id, "status": "active"}).sort("updated_at", -1))
-    org_data = org_public(org, me)
-    org_data["project_count"] = len(projects)
-    org_data["projects"] = [{"id": str(p["_id"]), "name": p.get("name"), "workflow_status": p.get("workflow_status", "Active"), "priority": p.get("priority", "Medium")} for p in projects]
-    return ok("Organization fetched", {"organization": org_data})
+    try:
+        members_limit = min(max(int(request.args.get("members_limit", 25) or 25), 1), 100)
+    except Exception:
+        members_limit = 25
+    members_q = request.args.get("members_q") or ""
+    return ok("Organization fetched", {"organization": org_detail_payload(org, me, members_limit, members_q)})
 
 
 @organization_bp.patch("/<org_id>")

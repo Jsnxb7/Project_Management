@@ -2,6 +2,8 @@ const orgId = window.ORG_ID;
 const orgMemberForm = document.getElementById("orgMemberForm");
 const orgDetailMessage = document.getElementById("orgDetailMessage");
 let orgData = null;
+let orgMembersLimit = 25;
+let orgMembersQuery = "";
 
 function tokenHeaders() {
     const token = localStorage.getItem("token");
@@ -21,9 +23,19 @@ function renderOrg() {
     document.getElementById("orgProjectCount").textContent = orgData.project_count || 0;
     document.getElementById("orgUserRole").textContent = orgData.user_role || "Member";
 
+    const memberMeta = document.getElementById("orgMemberMeta");
+    if (memberMeta) {
+        const showing = orgData.members_visible || 0;
+        const filtered = orgData.members_filtered ?? orgData.member_count ?? 0;
+        const total = orgData.members_total ?? orgData.member_count ?? 0;
+        memberMeta.textContent = `Showing ${showing} of ${filtered} matching member(s) • ${total} total`;
+    }
+
     const memberList = document.getElementById("orgMemberList");
     memberList.innerHTML = "";
-    (orgData.members || []).forEach(member => {
+    const members = orgData.members || [];
+    if (!members.length) memberList.innerHTML = `<p class="empty">No members found for this search.</p>`;
+    members.forEach(member => {
         const card = document.createElement("article");
         card.className = "member-card";
         card.innerHTML = `
@@ -44,6 +56,12 @@ function renderOrg() {
         btn.addEventListener("click", () => removeMember(btn.dataset.removeOrgUser));
     });
 
+    const loadMore = document.getElementById("orgLoadMoreMembers");
+    if (loadMore) {
+        const filtered = orgData.members_filtered ?? 0;
+        loadMore.style.display = (orgData.members_visible || 0) < filtered ? "inline-flex" : "none";
+    }
+
     const projectList = document.getElementById("orgProjectList");
     projectList.innerHTML = "";
     const projects = orgData.projects || [];
@@ -58,7 +76,9 @@ function renderOrg() {
 }
 async function loadOrg() {
     if (!requireAuth()) return;
-    const res = await fetch(`/api/organizations/${orgId}`, {headers: tokenHeaders()});
+    const params = new URLSearchParams({members_limit: String(orgMembersLimit)});
+    if (orgMembersQuery) params.set("members_q", orgMembersQuery);
+    const res = await fetch(`/api/organizations/${orgId}?${params.toString()}`, {headers: tokenHeaders()});
     const data = await res.json();
     if (!data.success) return msg(data.message);
     orgData = data.data.organization;
@@ -94,6 +114,25 @@ if (orgMemberForm) {
             orgMemberForm.reset();
             loadOrg();
         }
+    });
+}
+const orgMemberSearch = document.getElementById("orgMemberSearch");
+if (orgMemberSearch) {
+    let searchTimer = null;
+    orgMemberSearch.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            orgMembersQuery = orgMemberSearch.value.trim();
+            orgMembersLimit = 25;
+            loadOrg();
+        }, 250);
+    });
+}
+const loadMoreMembers = document.getElementById("orgLoadMoreMembers");
+if (loadMoreMembers) {
+    loadMoreMembers.addEventListener("click", () => {
+        orgMembersLimit = Math.min(orgMembersLimit + 25, 100);
+        loadOrg();
     });
 }
 loadOrg();

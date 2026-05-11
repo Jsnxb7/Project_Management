@@ -11,6 +11,7 @@
     </div>
     <div class="page-actions">
         <a class="btn secondary" href="/organizations">All Organizations</a>
+        <a class="btn secondary" href="/teams">View Teams</a>
         <a class="btn" id="orgConfigLink" href="/organizations/{{ org_id }}/config">Config</a>
     </div>
 </section>
@@ -46,8 +47,15 @@
 </section>
 
 <section class="panel">
-    <h2>Members</h2>
+    <div class="split compact">
+        <div>
+            <h2>Members</h2>
+            <p id="orgMemberMeta" class="muted">Loading members…</p>
+        </div>
+        <input id="orgMemberSearch" class="search-input" type="search" placeholder="Search members by name, email, or role">
+    </div>
     <div id="orgMemberList" class="member-list"></div>
+    <button id="orgLoadMoreMembers" class="btn secondary small" type="button" style="display:none; margin-top: 1rem;">Load more members</button>
 </section>
 {% endblock %}
 
