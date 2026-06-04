@@ -7,11 +7,12 @@ from app import bcrypt
 from database.db import users_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
+from services.hrms_service import HRMS_ROLES, normalize_role
 
 
 auth_bp = Blueprint("auth_bp", __name__)
 TOKEN_BLOCKLIST = set()
-PORTAL_ROLES = ["Super User", "Admin", "Org Head", "Team Lead", "Member"]
+PORTAL_ROLES = HRMS_ROLES
 
 
 def user_public(user):
@@ -20,8 +21,9 @@ def user_public(user):
         "name": user.get("name"),
         "email": user.get("email"),
         "profile_image": user.get("profile_image"),
-        "portal_role": user.get("portal_role", user.get("role", "Member")),
-        "role": user.get("portal_role", user.get("role", "Member")),
+        "portal_role": normalize_role(user.get("hrms_role") or user.get("portal_role") or user.get("role")),
+        "hrms_role": normalize_role(user.get("hrms_role") or user.get("portal_role") or user.get("role")),
+        "role": normalize_role(user.get("hrms_role") or user.get("portal_role") or user.get("role")),
         "is_active": user.get("is_active", True),
     }
 
@@ -48,7 +50,7 @@ def signup():
         return fail("An account with this email already exists", 409)
 
     existing_users = users_collection.count_documents({})
-    portal_role = "Super User" if existing_users == 0 else "Member"
+    portal_role = "Super User" if existing_users == 0 else "Employee"
     password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     now = datetime.now(timezone.utc)
 
@@ -58,6 +60,7 @@ def signup():
         "password_hash": password_hash,
         "profile_image": None,
         "portal_role": portal_role,
+        "hrms_role": portal_role,
         "role": portal_role,
         "is_active": True,
         "created_by": None,
@@ -92,7 +95,8 @@ def login():
     session.clear()
     session["user_id"] = str(user["_id"])
     session["user_name"] = user.get("name")
-    session["portal_role"] = user.get("portal_role", user.get("role", "Member"))
+    session["portal_role"] = normalize_role(user.get("hrms_role") or user.get("portal_role") or user.get("role"))
+    session["hrms_role"] = session["portal_role"]
     session.permanent = True
 
     token = create_access_token(identity=str(user["_id"]))

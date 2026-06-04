@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Employees | PeopleOps HRMS{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Employee Management</p>
+        <h1>Employee Directory</h1>
+        <p class="muted">Profiles, departments, designations, managers, documents, salary data, and work history.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="toolbar-right">
+        <input id="employeeSearch" placeholder="Search employees, departments, designations">
+        <button class="btn" id="employeeSearchBtn" type="button">Search</button>
+    </div>
+    <div id="employeeList" class="mini-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+{% endblock %}

@@ -1,22 +1,18 @@
 from datetime import datetime, timezone
-from bson import ObjectId
+
 from database.db import activity_logs_collection
+from services.hrms_service import to_object_id
 
 
-def oid(value):
-    if value is None:
-        return None
-    if isinstance(value, ObjectId):
-        return value
-    return ObjectId(value)
-
-
-def log_activity(project_id, user_id, action_type, description, task_id=None):
+def log_activity(actor_id, action_type, description, category="General", entity_type=None, entity_id=None, metadata=None):
     activity_logs_collection.insert_one({
-        "project_id": oid(project_id),
-        "task_id": oid(task_id) if task_id else None,
-        "user_id": oid(user_id),
+        "scope": "HRMS",
+        "category": category,
+        "actor_id": to_object_id(actor_id),
         "action_type": action_type,
         "description": description,
+        "entity_type": entity_type,
+        "entity_id": to_object_id(entity_id) if entity_id else None,
+        "metadata": metadata or {},
         "created_at": datetime.now(timezone.utc),
     })

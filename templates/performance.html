@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Performance | PeopleOps HRMS{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Performance</p>
+        <h1>Performance Tracking</h1>
+        <p class="muted">Reviews, manager ratings, KPI tracking, goals, feedback, and promotion recommendations.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Review Workspace</h2>
+    <div id="performanceSummary" class="mini-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/performance.js') }}"></script>
+{% endblock %}

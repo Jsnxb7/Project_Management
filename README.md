@@ -1,730 +1,1030 @@
-# Team Task Management Web Application
+# AI PeopleOps HRMS
 
-A full-stack collaborative task management web application built with **Flask**, **MongoDB Atlas**, **HTML**, **CSS**, **JavaScript**, and **Jinja2 templates**. The system supports organizations, role-based access, projects, task boards, milestones, comments, attachments, notifications, analytics, and relationship warnings for safer project administration.
+AI PeopleOps HRMS is a Flask + MongoDB Atlas based Human Resource Management System rebuilt for the theme **“Build the Future of HR Management with AI-Powered Solutions.”**
 
-The application is designed as a simplified real-world alternative to tools like Trello, Asana, and Jira, while keeping the codebase suitable for academic/project submission, deployment, and further extension.
-
----
-## Super-user Access
-For super-user access credentials mail to: shouryagarg2012@gmail.com
----
-
-## Table of Contents
-
-- [Project Overview](#project-overview)
-- [Key Features](#key-features)
-- [Role Model](#role-model)
-- [Relationship Rules](#relationship-rules)
-- [Tech Stack](#tech-stack)
-- [Folder Structure](#folder-structure)
-- [Installation and Setup](#installation-and-setup)
-- [Environment Variables](#environment-variables)
-- [MongoDB Atlas Setup](#mongodb-atlas-setup)
-- [Running the Application](#running-the-application)
-- [Main Pages](#main-pages)
-- [API Modules](#api-modules)
-- [Security and Git Safety](#security-and-git-safety)
-- [Deployment](#deployment)
-- [Post-Deployment Setup](#post-deployment-setup)
-- [Requirement Verification](#requirement-verification)
-- [Future Enhancements](#future-enhancements)
+The project combines core HRMS operations, role-based dashboards, AI recruitment, public candidate applications, interview rooms, AI voice-interview evaluation, user-specific theme kits, responsive UI, and MongoDB-backed persistence.
 
 ---
 
-## Project Overview
+## 1. Project Objective
 
-The Team Task Management Web Application helps teams organize work inside organizations and projects. Users can sign up, log in securely, create or join organizations, create projects under organizations, add project members, assign tasks, track deadlines, manage milestones, upload attachments, comment on tasks, receive notifications, and view analytics.
+The goal of the system is to provide a next-generation HRMS that can manage internal employees and external recruitment workflows in one platform.
 
-The latest version adds a stronger relationship layer so that projects, users, tasks, comments, attachments, milestones, and activity logs stay connected to the correct organization and project scope.
+The system supports:
 
----
-
-## Key Features
-
-### 1. User Authentication
-
-- User signup with name, email, and password.
-- Secure login using hashed passwords with Flask-Bcrypt.
-- JWT-based API authentication.
-- Flask session-based page protection.
-- Logout with JWT token blocklisting.
-- Browser back/forward cache protection using no-cache headers.
-- HTTP-only session cookie configuration.
-
-### 2. Organization Management
-
-- Create and manage organizations.
-- Organization detail page.
-- Organization configuration page.
-- Add members to organizations.
-- Change organization-level roles.
-- Track user-to-organization membership through `user_org_memberships`.
-- Keep embedded organization members compatible with the separate membership collection.
-- Super User and organization managers can manage organization-level settings.
-
-### 3. Project Management
-
-- Create projects under organizations.
-- Every project must belong to an organization.
-- Project creator/admin can manage project settings.
-- Add members from the same organization.
-- Show organization-only candidates when inviting project members.
-- Remove members from a project.
-- Change project member roles.
-- Pending invitation flow with accept/reject support.
-- Archive projects.
-- Soft-delete projects.
-- Project metadata support:
-  - Start date
-  - Deadline
-  - Priority
-  - Category
-  - Workflow status
-  - Visibility
-  - Tags
-
-### 4. Task / Job Management
-
-- Create tasks inside projects.
-- Assign tasks only to active project members.
-- Reassign tasks.
-- Edit task title, description, status, priority, assignee, deadline, labels, and milestone.
-- View tasks in a visual task board.
-- Details/edit UI is designed to work through popup-style task panels rather than pushing content far below the board.
-- Soft-delete tasks.
-- Track tasks using statuses:
-  - To Do
-  - In Progress
-  - Done
-  - Blocked
-  - Under Review
-  - Cancelled
-- Task priority support:
-  - Low
-  - Medium
-  - High
-  - Critical
-- Deadline badges for overdue, due today, due soon, future, and completed tasks.
-- Task labels for categorization and filtering.
-- My Tasks page for member-specific assigned work.
-
-### 5. Milestones
-
-- Create project milestones.
-- Archive milestones.
-- Link tasks to milestones.
-- Validate task deadlines against project and milestone deadlines.
-- Track milestone progress in analytics.
-- Include overdue milestone warnings in the Warning Center.
-
-### 6. Subtasks and Completion Tracking
-
-- Add checklist/subtasks to tasks.
-- Mark subtasks as completed.
-- Calculate task-level subtask completion percentage.
-- Display visual progress bars.
-- Prevent marking a task as Done when required checklist items are incomplete.
-- Show project-level completion rate.
-- Show per-member completion rate.
-
-### 7. Comments and Collaboration
-
-- Add comments to tasks.
-- Edit comments.
-- Delete comments.
-- Show comment counts on tasks.
-- Notify users when comments are added to relevant tasks.
-- Comments carry project and organization metadata.
-
-### 8. File Attachments
-
-- Upload files to tasks.
-- List task attachments.
-- Delete attachments.
-- File type validation.
-- 8 MB upload size limit.
-- File preview support for images.
-- File icons and file size display.
-- Attachments carry project and organization metadata.
-- Allowed file types include:
-  - PNG
-  - JPG / JPEG
-  - GIF
-  - PDF
-  - DOC / DOCX
-  - TXT
-  - ZIP
-
-### 9. Dashboard, Analytics, and Warnings
-
-- Global dashboard statistics.
-- Role scope summary.
-- Warning Center for relationship issues.
-- Project analytics page.
-- Project Health card with risk score.
-- Status summary.
-- Priority summary.
-- User task summary.
-- Overdue task tracking.
-- Blocked task count.
-- Unassigned task count.
-- Milestone count.
-- Milestone progress analytics.
-- Completion percentage visualization.
-- Workload/user completion progress bars.
-- Per-member performance overview.
-
-### 10. Notifications and Activity Logs
-
-- Notification list page.
-- Mark a single notification as read.
-- Mark all notifications as read.
-- Activity logging for:
-  - Organization creation/update
-  - Project creation/update
-  - Member addition/removal
-  - Task creation/update/deletion
-  - Task status changes
-  - Checklist/subtask updates
-  - Milestone creation/update/archive
-  - Comments
-  - File uploads
-
-### 11. Frontend UI
-
-- Responsive HTML, CSS, and JavaScript frontend.
-- Jinja2 template rendering.
-- Dark neon/glassmorphism-inspired interface.
-- Animated video background using `stars.mp4` / `stars.webm`.
-- Reusable base layout.
-- Navigation links for dashboard, organizations, projects, my tasks/jobs, notifications, profile, project management, and analytics.
-- Toast-style frontend feedback.
-- Search and filter controls for projects and tasks.
+- Employee data management
+- Attendance tracking
+- Payroll management
+- Performance tracking
+- AI resume screening
+- AI chat/voice recruitment preparation
+- Interview rooms
+- Role-based dashboards
+- Admin-level company-wide views
+- User-specific theme kits
+- Responsive web/mobile UI
+- MongoDB Atlas database storage
 
 ---
 
-## Role Model
+## 2. Tech Stack
 
-The application supports multiple scopes of access.
-
-### Super User
-
-- Global access across organizations, users, projects, dashboards, and warnings.
-- Can view orphan users and organization relation warnings.
-- Can create and manage organizations.
-- Can access portal-level user management.
-
-### Org Head / Organization Admin
-
-- Organization-level management access.
-- Can manage organization configuration.
-- Can add organization members.
-- Can create projects inside the organization.
-- Can invite organization members into projects.
-- Can view organization-level warnings and analytics.
-
-### Team Lead / Project Admin
-
-- Project-level management access.
-- Can manage project members.
-- Can create, assign, edit, and delete project tasks.
-- Can create and archive milestones.
-- Can manage project analytics and activity logs.
-
-### Member
-
-- Can view organizations/projects where they are an active member.
-- Can view assigned tasks/jobs.
-- Can update assigned task status where allowed.
-- Can comment on relevant tasks.
-- Can upload files to assigned/relevant tasks.
-- Can track personal workload through My Tasks.
+| Layer | Technology |
+| --- | --- |
+| Backend | Python, Flask |
+| Database | MongoDB Atlas using `pymongo` |
+| Frontend | HTML, CSS, JavaScript |
+| Authentication | JWT-style token stored client-side |
+| Styling | Custom responsive CSS, theme variables |
+| AI Recruitment | Lightweight deterministic vector-style scoring, keyword matching, grammar scoring |
+| Resume Parsing | TXT by default, optional PDF/DOCX parsers |
+| Real-time-ready Layer | Interview rooms and message structure ready for SocketIO/WebSocket extension |
+| Deployment Ready | Procfile, Render config, environment variables |
 
 ---
 
-## Relationship Rules
+## 3. Main Functional Modules
 
-The latest version enforces safer logical relationships while showing most relation violations as warnings instead of breaking the user flow.
+## 3.1 Authentication and Access Control
 
-- Every project should belong to at least one organization.
-- Every user/member should belong to an organization.
-- Project members should also be active members of the project organization.
-- Task `organization_id` is inherited from the project.
-- Task assignees must be active project members.
-- Comments, attachments, subtasks, milestones, and activity logs store organization/project context.
-- Task milestone must belong to the same project.
-- Task deadline should not exceed project or milestone deadline.
-- Organizations should have at least one active manager such as Admin or Org Head.
-- Projects should have at least one active project manager/admin.
-- Warnings include:
-  - User without organization
-  - Project without organization
-  - Organization missing head/admin
-  - Project missing manager
-  - Project member not present in organization
-  - Task organization mismatch
-  - Task assignee mismatch
-  - Overdue task
-  - Overdue milestone
+The system supports secure login and protected pages.
 
----
+Features:
 
-## Tech Stack
+- Login
+- Signup
+- Logout
+- Token-based protected routes
+- Role-aware UI visibility
+- First user becomes Super User
+- Later signups default to Employee
+- Admins can update roles from the user management area
 
-### Frontend
+Main routes:
 
-- HTML5
-- CSS3
-- JavaScript
-- Jinja2 templates
-
-### Backend
-
-- Python
-- Flask
-- Flask Blueprints
-- Flask-CORS
-- Flask-Bcrypt
-- Flask-JWT-Extended
-- Flask sessions
-
-### Database
-
-- MongoDB Atlas
-- PyMongo
-- BSON ObjectId
-
-### Deployment
-
-- Gunicorn
-- Render-compatible `render.yaml`
-- Railway-compatible environment variable setup
-- `Procfile` for platform deployment
-
-### Other Tools
-
-- python-dotenv
-- Werkzeug
-- dnspython
+| Feature | Route |
+| --- | --- |
+| Login page | `/login` |
+| Signup page | `/signup` |
+| Auth API | `/api/auth` |
 
 ---
 
-## Folder Structure
+## 3.2 Role System
+
+The project includes a broad HRMS role model so different users get different access.
+
+Supported roles:
+
+- Super User
+- Management Admin
+- HR Director
+- HR Manager
+- HR Business Partner
+- HR Recruiter
+- Talent Acquisition Specialist
+- Technical Interviewer
+- Panel Interviewer
+- Payroll Manager
+- Compensation and Benefits Specialist
+- Learning and Development Manager
+- Employee Relations Manager
+- HR Operations Specialist
+- Senior Manager
+- Employee
+- Outsider/Candidate through public pages only
+
+### Role Rules
+
+| Role Group | Access Level |
+| --- | --- |
+| Super User | Full system access, all users, all modules, bulk import |
+| Management Admin | Company-wide dashboards, employees, performance, recruitment, payroll overview |
+| HR Leadership | Employee data, HR operations, recruitment, performance, attendance visibility |
+| HR Recruiter / Talent Acquisition | Job posts, applications, resume screening, candidate reports, interview assignment |
+| Interviewer Roles | Interview rooms, candidate evaluation, voice-interview lab |
+| Payroll Roles | Payroll records, salary components, compensation data |
+| Senior Manager | Team-level performance, attendance, interview participation, assigned employees |
+| Employee | Personal dashboard, attendance, performance, profile, notifications, themes |
+| Candidate/Outsider | Careers, application form, resume upload, shared interview room only |
+
+Permission logic is mainly handled in:
 
 ```text
-Project_Management/
-│
-├── app.py
-├── config.py
-├── requirements.txt
-├── Procfile
-├── render.yaml
-├── DEPLOYMENT.md
-├── mongo_setup.py
-│
-├── database/
-│   └── db.py
-│
-├── routes/
-│   ├── activity_routes.py
-│   ├── attachment_routes.py
-│   ├── auth_routes.py
-│   ├── comment_routes.py
-│   ├── dashboard_routes.py
-│   ├── milestone_routes.py
-│   ├── notification_routes.py
-│   ├── organization_routes.py
-│   ├── portal_routes.py
-│   ├── project_routes.py
-│   ├── task_routes.py
-│   └── user_routes.py
-│
-├── scripts/
-│   ├── create_super_user.py
-│   └── repair_org_relations.py
-│
-├── services/
-│   ├── activity_service.py
-│   ├── notification_service.py
-│   ├── permission_service.py
-│   └── relation_service.py
-│
-├── static/
-│   ├── css/
-│   │   └── style.css
-│   ├── images/
-│   │   ├── stars.mp4
-│   │   └── stars.webm
-│   ├── js/
-│   │   ├── app.js
-│   │   ├── auth.js
-│   │   ├── dashboard.js
-│   │   ├── manage_project.js
-│   │   ├── my_tasks.js
-│   │   ├── notifications.js
-│   │   ├── organization_config.js
-│   │   ├── organization_detail.js
-│   │   ├── organizations.js
-│   │   ├── portal_users.js
-│   │   ├── profile.js
-│   │   ├── project_analytics.js
-│   │   ├── projects.js
-│   │   └── tasks.js
-│   └── uploads/
-│       └── .gitkeep
-│
-├── templates/
-│   ├── base.html
-│   ├── dashboard.html
-│   ├── index.html
-│   ├── login.html
-│   ├── manage_project.html
-│   ├── my_tasks.html
-│   ├── notifications.html
-│   ├── organization_config.html
-│   ├── organization_detail.html
-│   ├── organizations.html
-│   ├── portal_users.html
-│   ├── profile.html
-│   ├── projects.html
-│   ├── project_analytics.html
-│   ├── signup.html
-│   └── task_board.html
-│
-└── utils/
-    ├── decorators.py
-    ├── response.py
-    └── validators.py
+services/hrms_service.py
+utils/decorators.py
 ```
 
 ---
 
-## Installation and Setup
+## 3.3 Personalized Dashboards
 
-### 1. Clone or Download the Project
+Each logged-in user gets dashboard content based on their role and access level.
 
-```bash
-git clone <your-repository-url>
-cd Project_Management
+Employee dashboard includes:
+
+- Personal profile summary
+- Attendance status
+- Performance indicators
+- Notifications
+- Personal activity
+- Theme access
+
+HR dashboard includes:
+
+- Recruitment pipeline
+- Candidate applications
+- AI screening summaries
+- Employee operations
+- Interview room links
+
+Admin dashboard includes:
+
+- Company-wide employee summary
+- Department activity
+- Attendance overview
+- Recruitment analytics
+- User management access
+- System activity overview
+
+Main route:
+
+```text
+/dashboard
 ```
 
-If you are using a downloaded ZIP file, extract it and open the `Project_Management` folder.
+---
 
-### 2. Create a Virtual Environment
+## 3.4 Employee Management
 
-For Windows:
+This module stores and manages employee data.
 
-```bash
-python -m venv venv
-venv\Scripts\activate
+Features:
+
+- Add employee records
+- Update employee information
+- Department and designation management
+- Employment status
+- Manager assignment
+- Contact and profile information
+- Salary-related fields
+- Work history foundation
+
+Main routes:
+
+| Feature | Route |
+| --- | --- |
+| Employee page | `/employees` |
+| HRMS API | `/api/hrms` |
+
+MongoDB collection:
+
+```text
+employees
 ```
 
-For macOS/Linux:
+---
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+## 3.5 Attendance Management
+
+Attendance is part of the core HRMS requirement.
+
+Features:
+
+- Employee check-in/check-out structure
+- Attendance logs
+- Working hours support
+- Late/absence tracking foundation
+- Employee-level attendance view
+- Manager/admin scoped visibility
+
+Main route:
+
+```text
+/attendance
 ```
 
-### 3. Install Dependencies
+MongoDB collection:
 
-```bash
+```text
+attendance
+```
+
+---
+
+## 3.6 Payroll Management
+
+Payroll supports salary and compensation workflows.
+
+Features:
+
+- Salary component storage
+- Payroll records
+- Payroll status
+- Allowance/deduction fields
+- Attendance-linked payroll foundation
+- Payslip reference support
+- Payroll-role based access
+
+Main route:
+
+```text
+/payroll
+```
+
+MongoDB collection:
+
+```text
+payroll
+```
+
+---
+
+## 3.7 Performance Tracking
+
+Performance tracking supports employee growth and review management.
+
+Features:
+
+- KPI reviews
+- Manager feedback
+- Ratings
+- Goal tracking foundation
+- Promotion recommendation foundation
+- Employee performance history
+
+Main route:
+
+```text
+/performance
+```
+
+MongoDB collection:
+
+```text
+performance_reviews
+```
+
+---
+
+## 3.8 Public Candidate / Outsider Portal
+
+The candidate side is separated from the internal HRMS UI. Outsiders cannot access internal dashboards.
+
+Candidate-visible areas:
+
+- Careers page
+- Job list
+- Application form
+- Resume upload
+- Basic applicant details
+- Shared interview room link when invited
+
+Candidate-hidden areas:
+
+- Employee database
+- Payroll
+- Attendance
+- Admin dashboards
+- Internal recruitment reports
+- User management
+- HR operations
+
+Main public routes:
+
+| Feature | Route |
+| --- | --- |
+| Careers page | `/careers` |
+| Apply page | `/apply` |
+| Shared interview room | `/interview-room/<room_code>` |
+
+---
+
+## 3.9 AI Resume Screening
+
+The recruitment module includes AI-style automated screening.
+
+Features:
+
+- Job description creation
+- JD keyword extraction
+- Resume upload
+- Resume text extraction
+- Resume/JD vector-style comparison
+- Cosine-style similarity score
+- Keyword coverage score
+- Grammar/writing quality score
+- Final weighted score
+- Minimum score filtering
+- Shortlist/reject recommendation
+- Matched keyword highlights
+- Missing keyword reporting
+- AI screening report per applicant
+
+Main routes:
+
+| Feature | Route |
+| --- | --- |
+| Recruitment workspace | `/recruitment` |
+| Applications and AI reports | `/applications` |
+| Recruitment API | `/api/recruitment` |
+
+Main service:
+
+```text
+services/ai_recruitment_service.py
+```
+
+MongoDB collections:
+
+```text
+jobs
+applications
+resume_screening_results
+job_knowledge_base
+```
+
+### Screening Logic
+
+The current implementation is lightweight and works without paid AI APIs. It can later be upgraded to:
+
+- Sentence Transformers
+- FAISS
+- LangChain/RAG
+- Fine-tuned local models
+- Hugging Face embedding models
+
+---
+
+## 3.10 AI Voice Interview Evaluation
+
+The voice interview module is prepared as a hybrid evaluation layer.
+
+Current functionality:
+
+- Transcript-based answer evaluation
+- Expected answer comparison
+- Keyword coverage scoring
+- Semantic similarity-style scoring
+- Clarity score
+- Final answer score
+- AI feedback structure
+
+Main route:
+
+```text
+/voice-interview
+```
+
+Recommended future full voice pipeline:
+
+```text
+Browser microphone
+    -> MediaRecorder audio chunks
+    -> Flask/WebSocket endpoint
+    -> Whisper or faster-distil-whisper STT
+    -> Chat/interview model
+    -> RAG over job documents
+    -> Similarity scoring
+    -> Piper TTS response
+    -> Browser audio playback
+```
+
+Suggested models/tools:
+
+- STT: Whisper tiny/base, faster-distil-whisper
+- TTS: Piper
+- Chat: lightweight Hugging Face instruct/chat model
+- Similarity: Sentence Transformers
+- Knowledge retrieval: job knowledge base + embeddings
+
+---
+
+## 3.11 Interview Rooms
+
+Interview rooms allow a logged-in HR/interviewer user to connect with another person, including candidates.
+
+Features:
+
+- Create interview rooms
+- Assign candidate/application
+- Generate shareable room codes
+- Candidate can access only the shared room
+- Internal users can access assigned rooms
+- Message structure prepared for chat/transcripts/interview notes
+- Ready for WebSocket/SocketIO upgrade
+
+Main routes:
+
+| Feature | Route |
+| --- | --- |
+| Interview rooms list | `/interviews` |
+| Shared room | `/interview-room/<room_code>` |
+
+MongoDB collections:
+
+```text
+interview_rooms
+interview_sessions
+interview_messages
+```
+
+---
+
+## 3.12 User-Specific Theme Kits
+
+Each user can customize their UI theme.
+
+Features:
+
+- Theme kits page
+- Preset kits
+- User-specific permanent theme storage
+- MongoDB-backed theme values
+- Custom colors
+- Radius control
+- Dashboard density control
+- Background/video intensity handling
+
+Theme kits included:
+
+- Neo Mint
+- Executive Dark
+- Recruiter Pulse
+- Payroll Focus
+- Cloud Light
+- Midnight Compact
+
+Main route:
+
+```text
+/themes
+```
+
+Theme API:
+
+```text
+/api/theme
+```
+
+MongoDB collection:
+
+```text
+user_themes
+```
+
+---
+
+## 3.13 Sidebar Navigation Behavior
+
+The top navigation was replaced with a dynamic collapsible sidebar.
+
+Current sidebar rules:
+
+- Desktop sidebar is collapsed by default.
+- Toggle OFF means collapsed mode.
+- In collapsed mode:
+  - options are blurred/faded
+  - the vertical app name stays visible in the center
+  - hover temporarily expands the sidebar
+- Toggle ON means fixed open mode.
+- In fixed open mode:
+  - sidebar stays open
+  - hover does not trigger any collapse behavior
+  - blur/fade/collapsed state is disabled
+- Toggle state is stored locally in the browser so page changes do not confuse the sidebar state.
+- Mobile uses a slide-out drawer instead of hover behavior.
+
+Related files:
+
+```text
+templates/base.html
+static/css/style.css
+static/js/app.js
+```
+
+---
+
+## 3.14 Responsive UI
+
+The UI has been optimized for different screen sizes.
+
+Supported layouts:
+
+- Small phones
+- Large phones
+- Tablets
+- Laptops
+- Desktop monitors
+- Large screens
+
+Responsive behavior includes:
+
+- Mobile slide-out sidebar
+- Touch-safe navigation
+- Adaptive cards and dashboard grids
+- Stacked mobile tables
+- Responsive forms
+- Tap-friendly buttons
+- Auto-sizing panels
+- Reduced heavy visual effects on mobile/low-power devices
+- Disabled hover-only behavior on touch devices
+
+---
+
+## 3.15 Notifications
+
+Notifications are available for authenticated users.
+
+Use cases:
+
+- Leave updates
+- Payroll updates
+- Interview updates
+- Recruitment actions
+- System activity messages
+
+Main route:
+
+```text
+/notifications
+```
+
+MongoDB collection:
+
+```text
+notifications
+```
+
+---
+
+## 3.16 Profile Management
+
+Each logged-in user can access their profile.
+
+Features:
+
+- View account information
+- Role display
+- Personal details foundation
+- Theme personalization link
+
+Main route:
+
+```text
+/profile
+```
+
+---
+
+## 3.17 User Management and Bulk Import
+
+Admin-level users can manage internal users.
+
+Features:
+
+- View users
+- Create/update users
+- Assign roles
+- Bulk import users
+- Conflict handling foundation
+- Super User-only high-level controls
+
+Main routes:
+
+| Feature | Route |
+| --- | --- |
+| User management | `/portal/users` |
+| Bulk import | `/portal/import-users` |
+
+---
+
+## 3.18 Performance and Scalability Optimizations
+
+The project is designed for future high user count, including 5,000+ users.
+
+Current optimizations:
+
+- MongoDB connection pooling
+- Collection indexes
+- Reduced heavy CSS effects
+- Reduced animations on mobile/low-power devices
+- Background video disabled under low-performance conditions
+- Responsive table conversion
+- Layout containment and lower-cost rendering
+- Role-aware UI rendering to reduce visible DOM clutter
+
+Recommended future production additions:
+
+- Gunicorn workers
+- Nginx reverse proxy
+- Redis caching
+- Celery workers for AI/resume processing
+- Queue background jobs for reports
+- Pagination for large collections
+- Server-side search/filtering
+- WebSocket scaling using Redis message queue
+- Object storage for uploaded resumes/documents
+
+---
+
+## 4. Main Pages
+
+| Page | Route |
+| --- | --- |
+| Home | `/` |
+| Careers / outsider jobs | `/careers` |
+| Public application | `/apply` |
+| Login | `/login` |
+| Signup | `/signup` |
+| Dashboard | `/dashboard` |
+| Employees | `/employees` |
+| Attendance | `/attendance` |
+| Payroll | `/payroll` |
+| Performance | `/performance` |
+| Recruitment workspace | `/recruitment` |
+| Applications and AI reports | `/applications` |
+| AI voice interview lab | `/voice-interview` |
+| Interview rooms list | `/interviews` |
+| Shared interview room | `/interview-room/<room_code>` |
+| Theme kits | `/themes` |
+| Notifications | `/notifications` |
+| Profile | `/profile` |
+| User management | `/portal/users` |
+| Bulk user import | `/portal/import-users` |
+
+---
+
+## 5. API Route Groups
+
+| Area | Prefix |
+| --- | --- |
+| Authentication | `/api/auth` |
+| HRMS data | `/api/hrms` |
+| Recruitment + AI | `/api/recruitment` |
+| User theme | `/api/theme` |
+| HRMS user administration | `/api/portal` |
+| Profile | `/api/users` |
+| Notifications | `/api/notifications` |
+| Activity logs | `/api/activity` |
+
+---
+
+## 6. MongoDB Collections
+
+The system uses these collections:
+
+```text
+users
+employees
+attendance
+payroll
+performance_reviews
+leave_requests
+jobs
+job_knowledge_base
+applications
+resume_screening_results
+interview_sessions
+interview_rooms
+interview_messages
+user_themes
+employee_documents
+hr_cases
+learning_records
+notifications
+activity_logs
+login_sessions
+```
+
+---
+
+## 7. Local Setup
+
+Create and activate a virtual environment:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\activate
+```
+
+Install requirements:
+
+```powershell
 pip install -r requirements.txt
 ```
 
----
+Create environment file:
 
-## Environment Variables
-
-Create a `.env` file in the root folder of the project. Use `.env.example` as the template.
-
-```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/team_task_db?retryWrites=true&w=majority
-DB_NAME=team_task_db
-SECRET_KEY=your-long-random-flask-secret-key
-JWT_SECRET_KEY=your-long-random-jwt-secret-key
-FLASK_ENV=development
-UPLOAD_FOLDER=static/uploads
-ENABLE_SEED=false
+```powershell
+copy .env.example .env
 ```
 
-For production deployment, set:
+Run the project:
 
-```env
-FLASK_ENV=production
-```
-
-Never commit the real `.env` file. The MongoDB connection string, Flask secret key, and JWT secret key must stay private.
-
----
-
-## MongoDB Atlas Setup
-
-1. Create a MongoDB Atlas account.
-2. Create a new cluster.
-3. Create a database user with a strong password.
-4. Give the user read/write access to the project database.
-5. Go to **Network Access** and add your allowed IP address.
-6. For local development, add your current IP address.
-7. For platforms like Railway or Render, use the platform-provided outbound IP if available.
-8. If the platform does not provide a fixed outbound IP, `0.0.0.0/0` may be required, but it is less secure.
-9. Copy the MongoDB connection string and place it in `.env` as `MONGO_URI`.
-
-Example:
-
-```env
-MONGO_URI=mongodb+srv://myuser:mypassword@cluster0.xxxxx.mongodb.net/team_task_db?retryWrites=true&w=majority
-```
-
----
-
-## Running the Application
-
-Start the Flask server:
-
-```bash
+```powershell
 python app.py
 ```
 
-The application will run on:
+Open:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-If a deployment platform sets a `PORT` environment variable, the app automatically uses that port.
-
 ---
 
-## Main Pages
+## 8. Environment Variables
 
-| Page | Route | Description |
-|---|---|---|
-| Landing Page | `/` | Public homepage |
-| Signup | `/signup` | Create a new account |
-| Login | `/login` | User login page |
-| Dashboard | `/dashboard` | User dashboard, role scope, statistics, and warnings |
-| Organizations | `/organizations` | View and create organizations |
-| Organization Detail | `/organizations/<org_id>` | View organization members and projects |
-| Organization Config | `/organizations/<org_id>/config` | Manage organization settings and members |
-| Portal Users | `/portal/users` | Super-user style user administration |
-| Projects | `/projects` | View and create projects |
-| My Tasks | `/my-tasks` | View tasks/jobs assigned to the logged-in user |
-| Task Board | `/project/<project_id>/tasks` | Manage project tasks/jobs |
-| Manage Project | `/project/<project_id>/manage` | Admin project/member/milestone settings |
-| Project Analytics | `/project/<project_id>/analytics` | Project-level analytics and health |
-| Notifications | `/notifications` | View notifications |
-| Profile | `/profile` | View and update profile |
-
----
-
-## API Modules
-
-The backend is organized using Flask Blueprints.
-
-| Module | Base Route | Purpose |
-|---|---|---|
-| Authentication | `/api/auth` | Signup, login, logout, current user |
-| Organizations | `/api/organizations` | Organization CRUD, members, organization configuration |
-| Portal | `/api/portal` | Portal-level user controls |
-| Projects | `/api/projects` | Project CRUD, members, invitations, project settings |
-| Tasks | `/api/tasks` | Task creation, updates, filters, subtasks, status changes |
-| Milestones | `/api` | Project milestone creation, updates, archive, and task relations |
-| Dashboard | `/api/dashboard` | Dashboard statistics, role scope, warnings, summaries |
-| Comments | `/api` | Task comments |
-| Attachments | `/api` | Task file upload/list/delete |
-| Notifications | `/api/notifications` | Notification list and read status |
-| Activity | `/api/activity` | Project and organization activity logs |
-| Users | `/api/users` | Profile and password management |
-
----
-
-## Security and Git Safety
-
-- Password hashing is handled with Flask-Bcrypt.
-- API routes are protected with JWT where required.
-- Frontend pages are protected with Flask sessions.
-- Session cookies are HTTP-only.
-- Secure cookies are enabled when `FLASK_ENV=production`.
-- SameSite cookie protection is enabled.
-- Protected pages include no-cache headers to prevent browser back-button access after logout.
-- Secrets are loaded from environment variables.
-- MongoDB URI is stored in `.env`, not inside source code.
-- File uploads are validated and limited to 8 MB.
-- Role-based and relation-based permission checks are applied.
-- Important entities use soft deletion where appropriate.
-
-### Important Secret Handling Notes
-
-The real `.env` file must never be uploaded to GitHub or shared publicly.
-
-Recommended `.gitignore` entries:
-
-```gitignore
-.env
-.env.*
-!.env.example
-__pycache__/
-*.pyc
-venv/
-env/
-.venv/
-instance/
-static/uploads/*
-!static/uploads/.gitkeep
-*.db
-*.sqlite
-*.sqlite3
-*.pem
-*.key
-*.crt
-*.p12
-*.pfx
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-```
-
-Before committing, check tracked files:
-
-```bash
-git status
-git ls-files .env
-```
-
-If `.env` appears in tracked files, remove it from Git tracking without deleting your local file:
-
-```bash
-git rm --cached .env
-git commit -m "Remove env file from tracking"
-```
-
-To create a clean ZIP without ignored secrets:
-
-```bash
-git archive --format=zip --output=Project_Management_clean.zip HEAD
-```
-
----
-
-## Deployment
-
-The project includes deployment-ready files:
-
-- `Procfile`
-- `render.yaml`
-- `DEPLOYMENT.md`
-- `requirements.txt`
-- Gunicorn support
-
-### Render Start Command
-
-```bash
-gunicorn "app:create_app()"
-```
-
-### Railway Start Command
-
-```bash
-gunicorn "app:create_app()"
-```
-
-### Required Production Environment Variables
+Create `.env` from `.env.example`.
 
 ```env
-MONGO_URI=your-mongodb-atlas-uri
-DB_NAME=team_task_db
-SECRET_KEY=your-production-secret-key
-JWT_SECRET_KEY=your-production-jwt-secret-key
-FLASK_ENV=production
-ENABLE_SEED=false
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/hrms_db?retryWrites=true&w=majority
+DB_NAME=hrms_db
+SECRET_KEY=change-this-secret
+JWT_SECRET_KEY=change-this-jwt-secret
+FLASK_ENV=development
+UPLOAD_FOLDER=static/uploads
 ```
 
-Do not put production values directly into `render.yaml`, `Procfile`, `README.md`, or source files. Add them through the hosting platform's environment variable dashboard.
+Do not commit `.env`.
+
+`.env` is intentionally excluded from the clean zip.
 
 ---
 
-## Post-Deployment Setup
+## 9. Important Files
 
-After deploying or after pulling relation-rule updates, run the database setup and repair scripts once from your local terminal or deployment shell:
+| File | Purpose |
+| --- | --- |
+| `app.py` | Main Flask app entry point |
+| `config.py` | App configuration and environment loading |
+| `database/db.py` | MongoDB Atlas connection |
+| `routes/auth_routes.py` | Login/signup/authentication APIs |
+| `routes/hrms_routes.py` | Employee, attendance, payroll, performance APIs |
+| `routes/recruitment_routes.py` | Jobs, applications, AI screening, interviews |
+| `routes/theme_routes.py` | User-specific theme storage |
+| `routes/portal_routes.py` | User management and admin routes |
+| `services/ai_recruitment_service.py` | Resume screening and scoring logic |
+| `services/hrms_service.py` | Role/permission helpers and HRMS logic |
+| `templates/base.html` | Shared sidebar layout |
+| `static/css/style.css` | Global UI, responsive layout, theme kits, sidebar behavior |
+| `static/js/app.js` | Shell behavior, auth checks, themes, sidebar state |
+
+---
+
+## 10. Development Notes
+
+- Use the latest zip as the main project version.
+- The previous zips are only backups.
+- The project currently includes lightweight AI-style scoring so it works without paid APIs.
+- For a production-grade AI version, replace or extend the current scorer with embeddings and actual model inference.
+- For real-time interviews, integrate Flask-SocketIO and use Redis for multi-worker scaling.
+- For 5,000+ users, keep dashboard pages paginated and avoid loading entire collections into the frontend.
+
+---
+
+## 11. Suggested Next Development Steps
+
+1. Add real Sentence Transformer embeddings for resume/JD matching.
+2. Add FAISS or MongoDB vector search for job knowledge retrieval.
+3. Add Whisper/faster-distil-whisper for speech-to-text.
+4. Add Piper for text-to-speech interviewer voice.
+5. Add Flask-SocketIO for live interview rooms.
+6. Add Celery + Redis for background resume screening.
+7. Add pagination and server-side filtering for users/applications/employees.
+8. Add file storage support for resumes and employee documents.
+9. Add admin analytics charts for attendance, recruitment, and payroll.
+10. Add audit logs for sensitive HR actions.
+
+---
+
+## Recruitment Screening Model Layer
+
+A standalone recruitment screening model has been added under:
+
+```text
+services/recruitment_screening_model.py
+```
+
+It follows the planned recruitment AI approach:
+
+- job description keyword extraction
+- resume text extraction from PDF/DOCX/TXT
+- vector embedding generation
+- cosine similarity scoring
+- keyword match scoring
+- writing style and grammar-like scoring
+- resume structure scoring
+- weighted final score calculation
+- minimum score based shortlist/reject decision
+- matched keyword highlights for AI reports
+
+A wrapper remains in:
+
+```text
+services/ai_recruitment_service.py
+```
+
+so the existing Flask routes continue to work while the model can be upgraded independently.
+
+Run the standalone demo:
 
 ```bash
-python mongo_setup.py
-python scripts/repair_org_relations.py
+python scripts/demo_recruitment_screening.py
 ```
 
-Use the super-user creation script only when you intentionally want to create or repair the first privileged user:
+More details are documented in:
 
-```bash
-python scripts/create_super_user.py
+```text
+RECRUITMENT_SCREENING_MODEL.md
 ```
 
-Keep the super-user script out of public commits if it contains local-only credentials or hardcoded setup values.
+## Latest Update: Recruitment Screening Model Wired to UI
 
----
+The recruitment screening model is now connected to the Flask application and UI.
 
-## Requirement Verification
+### Job and JD Creation
 
-| Requirement | Status |
-|---|---|
-| Signup with name, email, and password | Implemented |
-| Secure login | Implemented |
-| Password hashing | Implemented |
-| JWT/session-based authentication | Implemented |
-| Logout and token blocklist | Implemented |
-| Browser back-button/session protection | Implemented |
-| Create organizations | Implemented |
-| Organization member management | Implemented |
-| Super User and Org Head options | Implemented |
-| Create projects under organizations | Implemented |
-| Projects must belong to organizations | Implemented |
-| Users/members should belong to organizations | Implemented |
-| Admin can add/remove project members | Implemented |
-| Project members limited to organization members | Implemented |
-| Members can view assigned projects | Implemented |
-| Create and assign tasks/jobs | Implemented |
-| My Tasks assigned-work page | Implemented |
-| Task deadline support | Implemented |
-| Task priority support | Implemented |
-| Task status tracking | Implemented |
-| Popup-style task details/edit flow | Implemented |
-| Role-based Admin/Member access | Implemented |
-| Warning-only relation checks | Implemented |
-| Dashboard Warning Center | Implemented |
-| Milestones | Implemented |
-| Task-to-milestone relation | Implemented |
-| Subtask/checklist tracking | Implemented |
-| Task completion percentage | Implemented |
-| Checklist guard before Done | Implemented |
-| Comments | Implemented |
-| Notifications | Implemented |
-| Activity logs | Implemented |
-| File attachments | Implemented |
-| Search and filters | Implemented |
-| Profile management | Implemented |
-| Project analytics and health card | Implemented |
-| MongoDB Atlas integration | Implemented |
-| Deployment preparation | Implemented |
+Recruitment users can open **Recruitment AI** from the sidebar and create a job profile with:
 
----
+- job title
+- department
+- location
+- employment type
+- minimum AI score threshold
+- optional manual keywords
+- full job description/JD
 
-## Future Enhancements
+When a job is created, the system extracts JD keywords automatically unless manual keywords are supplied. These keywords become the reference terms for resume matching, highlighted report evidence, and missing-skill analysis.
 
-- Email-based project invitations.
-- Real-time updates using WebSockets.
-- Drag-and-drop Kanban task movement.
-- Calendar view for deadlines and milestones.
-- Team chat inside projects.
-- Admin export reports as PDF or CSV.
-- User profile image upload.
-- Password reset through email OTP.
-- More detailed audit logs.
-- Fine-grained custom permissions per organization.
-- Mobile-first UI improvements.
+### Single Resume Screening
 
----
+The Recruitment page includes a **Single Resume Screening** form. HR can select a job, upload one resume, and enter candidate details. The system then:
 
-## Author
+1. extracts resume text from PDF, DOCX, DOC, or TXT,
+2. compares the resume against the selected job JD,
+3. calculates semantic similarity,
+4. calculates keyword match score,
+5. estimates writing/grammar quality,
+6. checks resume structure,
+7. generates a final weighted score,
+8. creates an application record,
+9. stores an explainable AI report.
 
-Developed as a full-stack Team Task Management Web Application project using Flask, MongoDB Atlas, HTML, CSS, JavaScript, and Jinja2.
+### Bulk Resume Screening
+
+The Recruitment page also includes a **Bulk Resume Screening** form. HR can upload multiple resumes at once for the selected job. Each file becomes a separate application and receives its own AI screening report. Candidate names are initially generated from filenames and can be reviewed later.
+
+### Job-Wise Distinction
+
+All applications and screening reports are linked to a specific job. The Applications page now supports:
+
+- filter by job,
+- filter by review status,
+- show shortlisted only,
+- job-wise candidate comparison,
+- job-wise AI reports.
+
+### AI Report Highlights
+
+Each report includes:
+
+- final score,
+- semantic score,
+- keyword score,
+- writing score,
+- structure score,
+- recommendation,
+- confidence label,
+- matched keywords,
+- missing keywords,
+- highlighted resume snippets using `<mark>` tags.
+
+This makes the screening output explainable instead of just showing a score.
+
+### Human Review Workflow
+
+Relevant recruitment users can review AI-screened candidates and update the review state:
+
+- Pending Review
+- Needs Review
+- Shortlisted
+- Interview Scheduled
+- Selected
+- Rejected
+- On Hold
+
+Review notes can be saved with the application. This keeps the AI decision separate from the final HR review.
+
+### Interview Connection
+
+From the Applications page, authorized recruitment users can create interview rooms for candidates. This connects the resume screening workflow to the existing interview-room and AI voice interview modules.
+
+### New API Endpoints
+
+```text
+GET    /api/recruitment/jobs
+GET    /api/recruitment/jobs/<job_id>
+POST   /api/recruitment/jobs
+PATCH  /api/recruitment/jobs/<job_id>
+POST   /api/recruitment/screen/single
+POST   /api/recruitment/screen/bulk
+GET    /api/recruitment/applications
+GET    /api/recruitment/applications/<application_id>/report
+PATCH  /api/recruitment/applications/<application_id>/review
+POST   /api/recruitment/applications/<application_id>/assign-interview
+```
+
+### Permissions Used
+
+- `can_view_recruitment`: view jobs and applications.
+- `can_manage_recruitment`: create and update jobs.
+- `can_ai_screen_resumes`: run single and bulk resume screening.
+- `can_review_recruitment`: save human review decisions and notes.
+- `can_assign_interviewers`: create interview rooms.
+
+
+## Recruitment Visibility, Resume Screening, and Progress Tracking Update
+
+This build connects the recruitment screening model directly to applicant-uploaded resumes and job-specific JDs.
+
+### Job ownership and access rules
+
+- **Super User** can see and control every job, applicant, resume, AI report, and progress tracker.
+- Every job stores a `created_by` owner.
+- The job creator can see applicant details, uploaded resumes, AI screening reports, progress, and review controls.
+- The job creator can select additional users as:
+  - **Viewers**: can view the job, applicants, resumes, reports, and progress.
+  - **Controllers**: can view everything and also screen resumes, review applicants, shortlist/reject, and allot further interview process.
+- Other users only see recruitment data for jobs shared with them.
+
+### Applicant resume connection
+
+Each application is tied to a specific `job_id`. When a candidate applies or an internal user uploads a resume, the system:
+
+1. Fetches the selected job and its JD.
+2. Extracts resume text from the applicant-uploaded resume.
+3. Screens the resume against that specific JD.
+4. Stores the uploaded resume path, extracted resume text, matched keywords, missing keywords, and AI scores.
+5. Makes the resume and report visible only to allowed users.
+
+### Single and bulk screening
+
+The Recruitment page supports:
+
+- single applicant screening
+- bulk resume screening
+- job-wise screening distinction
+- minimum JD score filtering
+- access assignment while creating the job
+
+### AI report review
+
+The Applications page now shows:
+
+- applicant details
+- uploaded resume filename
+- resume text preview
+- resume download option
+- semantic score
+- keyword score
+- writing score
+- structure score
+- final score
+- matched keywords
+- missing keywords
+- highlighted resume evidence
+- review controls for allowed controllers
+
+### Progress tracking
+
+Job-level progress includes:
+
+- JD Created
+- Applicants Screened
+- Shortlist Ready
+- Interview Process
+- Final Selection
+
+Applicant-level progress includes:
+
+- Applied
+- Screened
+- Pending Review
+- Shortlisted
+- Interview Scheduled
+- Selected
+
+Rejected applicants show a rejection-specific progress state.
+
+### Further process allotment
+
+Controllers can allot the next process from the applicant report view. The system can create an interview room and assign:
+
+- main interviewer
+- panel members
+- process mode such as AI Voice + Human Panel, Technical Interview, HR Discussion, Manager Round, or Final Leadership Round
+- scheduled time
+
+The application status is updated to `Interview Scheduled`, and the interview room becomes available from the interview module.

@@ -8,3 +8,5 @@ gunicorn
 dnspython
 Werkzeug
 openpyxl
+PyPDF2
+python-docx

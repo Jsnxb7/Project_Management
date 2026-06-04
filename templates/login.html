@@ -1,21 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Login | ProjectFlow{% endblock %}
+{% block title %}Login | PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="auth-card">
     <p class="eyebrow">Secure Login</p>
     <h1>Welcome Back</h1>
-    <p>Continue to your dashboard, projects, jobs, and notifications.</p>
+    <p>Continue to your HRMS dashboard, employee records, attendance, payroll, and performance workspace.</p>
 
     <form id="loginForm">
         <label>Email</label>
         <input type="email" id="email" required autocomplete="email" placeholder="you@company.com">
-
         <label>Password</label>
-        <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
-
-        <button class="btn full" type="submit">Login →</button>
+        <input type="password" id="password" required autocomplete="current-password" placeholder="Password">
+        <button class="btn full" type="submit">Login</button>
     </form>
 
     <p id="message" class="message"></p>

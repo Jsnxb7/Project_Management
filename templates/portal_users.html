@@ -1,107 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Portal Users | ProjectFlow{% endblock %}
+{% block title %}User Management | PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="page-head split">
     <div>
-        <p class="eyebrow">Super User</p>
-        <h1>Portal Users</h1>
-        <a class="btn small secondary" href="/portal/import-users">Bulk Import Users</a>
-        <p class="muted">Create and manage the users who can access the project management portal.</p>
+        <p class="eyebrow">HRMS Administration</p>
+        <h1>User Management</h1>
+        <p class="muted">Create HRMS accounts, assign HR roles, and keep employee profiles aligned.</p>
     </div>
+    <a class="btn small secondary" href="/portal/import-users">Bulk Import</a>
 </section>
 
 <section class="details-grid">
     <div class="panel">
-        <h2>Create Portal User</h2>
+        <h2>Create HRMS User</h2>
         <form id="portalUserForm" class="advanced-form">
             <label>Name</label>
             <input id="portalName" type="text" placeholder="Full name" required>
-
             <label>Email</label>
-            <input id="portalEmail" type="email" placeholder="user@example.com" required>
-
+            <input id="portalEmail" type="email" placeholder="employee@company.com" required>
             <label>Password</label>
             <input id="portalPassword" type="password" placeholder="Temporary password" required>
-
-            <label>Portal Role</label>
-            <select id="portalRole">
-                <option>Admin</option>
-                <option>Org Head</option>
-                <option>Team Lead</option>
-                <option selected>Member</option>
-            </select>
-
-            <label>Assign to Organization</label>
-            <select id="portalOrganization">
-                <option value="">Create without org assignment</option>
-            </select>
-
-            <label>Organization Role</label>
-            <select id="portalOrgRole">
-                <option>Admin</option>
-                <option>Org Head</option>
-                <option>Team Lead</option>
-                <option selected>Member</option>
-            </select>
-
-            <button class="btn" type="submit">Create User →</button>
+            <label>HRMS Role</label>
+            <select id="portalRole"></select>
+            <label>Department</label>
+            <input id="portalDepartment" type="text" placeholder="Human Resources">
+            <label>Designation</label>
+            <input id="portalDesignation" type="text" placeholder="HR Manager">
+            <button class="btn" type="submit">Create User</button>
         </form>
         <p id="portalUserMessage" class="message"></p>
     </div>
 
     <div class="panel">
-        <h2>Assign Existing User to Org</h2>
-        <form id="assignOrgForm" class="advanced-form">
-            <label>User Email</label>
-            <input id="assignUserEmail" type="email" placeholder="existing-user@example.com" required>
-            <label>Organization</label>
-            <select id="assignOrganization" required></select>
-            <label>Organization Role</label>
-            <select id="assignOrgRole">
-                <option>Admin</option>
-                <option>Org Head</option>
-                <option>Team Lead</option>
-                <option selected>Member</option>
-            </select>
-            <button class="btn" type="submit">Assign to Organization →</button>
-        </form>
-        <p class="muted">Use this before inviting a user into a project. Project members must belong to that project’s organization.</p>
-    </div>
-
-    <div class="panel">
-        <h2>Portal Structure</h2>
-        <div class="role-stack">
-            <span class="role-pill super">Super User</span>
-            <span class="role-pill">Admin</span>
-            <span class="role-pill">Org Head</span>
-            <span class="role-pill">Team Lead</span>
-            <span class="role-pill">Member</span>
-        </div>
-        <p class="muted">The Super User can still create portal accounts manually, manage roles, and oversee the full portal. Public signup is also enabled for normal user onboarding.</p>
+        <h2>Role Catalogue</h2>
+        <div id="roleCatalogue" class="role-stack"></div>
+        <p class="muted">Permissions are enforced by HRMS role family across employee data, payroll, recruitment, performance, leave, and admin dashboards.</p>
     </div>
 </section>
 
 <section class="panel">
     <div class="split compact">
         <div>
-            <h2>Portal Users Directory</h2>
-            <p id="portalUserInfo" class="muted">Only the first few users are loaded for speed. Search to fetch more from the server.</p>
+            <h2>HRMS Users</h2>
+            <p id="portalUserInfo" class="muted">Search by name, email, or role.</p>
         </div>
         <div class="toolbar-right">
-            <input id="portalUserSearch" type="text" placeholder="Search name, email, or role…">
-            <select id="portalUserLimit" title="Users per page">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
+            <input id="portalUserSearch" type="text" placeholder="Search users">
         </div>
     </div>
     <div id="portalUserStats" class="mini-stats optimized-stats"></div>
     <div id="portalUserList" class="member-list"></div>
-    <div id="portalUserPager" class="pagination-row"></div>
 </section>
 {% endblock %}
 

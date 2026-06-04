@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Interview Room | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Interview Room</p>
+    <h1>Room {{ room_code }}</h1>
+    <p class="muted">This shared room is cut off from the internal HRMS. Use it for candidate/interviewer messaging, transcript notes, and AI voice integration.</p>
+</section>
+<section class="details-grid">
+    <div class="panel">
+        <h2>Room Messages</h2>
+        <div id="roomMessages" class="mini-list room-box"></div>
+    </div>
+    <div class="panel">
+        <h2>Send Message / Transcript Chunk</h2>
+        <form id="roomForm">
+            <label>Your Display Name</label><input id="roomSender" placeholder="Candidate / Interviewer">
+            <label>Message</label><textarea id="roomMessage" required placeholder="Type message or paste STT transcript chunk..."></textarea>
+            <button class="btn full" type="submit">Send</button>
+        </form>
+    </div>
+</section>
+<script>window.ROOM_CODE = {{ room_code|tojson }};</script>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/interview_room.js') }}"></script>{% endblock %}

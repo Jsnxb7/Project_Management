@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Payroll | PeopleOps HRMS{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Payroll</p>
+        <h1>Payroll Control</h1>
+        <p class="muted">Salary structures, allowances, deductions, taxes, approvals, and payslip tracking.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Payroll Summary</h2>
+    <div id="payrollSummary" class="mini-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/payroll.js') }}"></script>
+{% endblock %}

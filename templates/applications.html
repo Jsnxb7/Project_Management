@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Applications | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">AI Screening Reports</p>
+        <h1>Applications Review</h1>
+        <p class="muted">Review job-wise candidates, inspect highlighted AI reports/resumes, update HR decision, assign interview rooms, and track applicant progress.</p>
+    </div>
+    <div class="hero-actions">
+        <a class="btn secondary" href="/recruitment">Screen More</a>
+        <button id="shortlistToggle" class="btn" type="button">Show Shortlisted Only</button>
+    </div>
+</section>
+
+<section class="panel toolbar-panel">
+    <div class="form-row align-end">
+        <div>
+            <label>Filter by Job</label>
+            <select id="jobFilter"><option value="">All jobs</option></select>
+        </div>
+        <div>
+            <label>Review Status</label>
+            <select id="reviewFilter">
+                <option value="">All review states</option>
+                <option>Pending Review</option>
+                <option>Needs Review</option>
+                <option>Shortlisted</option>
+                <option>Interview Scheduled</option>
+                <option>Selected</option>
+                <option>Rejected</option>
+                <option>On Hold</option>
+                <option>Auto Rejected</option>
+            </select>
+        </div>
+        <button id="refreshApplications" class="btn secondary" type="button">Refresh</button>
+    </div>
+</section>
+
+<section class="panel">
+    <div id="applicationsList" class="card-grid"></div>
+</section>
+
+<section class="panel" id="reportPanel" hidden>
+    <div class="split">
+        <div>
+            <p class="eyebrow">Explainable AI Report</p>
+            <h2 id="reportTitle">AI Report</h2>
+        </div>
+        <button id="closeReport" class="btn small secondary" type="button">Close</button>
+    </div>
+    <div id="reportBody"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/applications.js') }}"></script>{% endblock %}

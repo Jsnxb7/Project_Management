@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Apply | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">External Applicant Page</p>
+    <h1>Submit Application</h1>
+    <p class="muted">Candidates can only access this limited application flow. Internal dashboards, employee data, payroll, and company reports stay hidden behind staff login.</p>
+</section>
+<section class="details-grid">
+    <div class="panel">
+        <h2>Application Form</h2>
+        <form id="applicationForm" enctype="multipart/form-data">
+            <label>Job Role</label>
+            <select id="jobSelect" name="job_id" required></select>
+            <label>Full Name</label>
+            <input name="candidate_name" required placeholder="Your full name">
+            <label>Email</label>
+            <input type="email" name="candidate_email" required placeholder="you@example.com">
+            <label>Phone</label>
+            <input name="phone" placeholder="Phone number">
+            <label>Resume</label>
+            <input type="file" name="resume" accept=".pdf,.doc,.docx,.txt" required>
+            <label>Cover Note / Portfolio Highlights</label>
+            <textarea name="cover_note" placeholder="Mention your strongest relevant projects, skills, links, or achievements."></textarea>
+            <button class="btn full" type="submit">Submit and Run AI Screening</button>
+        </form>
+        <p id="applyMessage" class="message"></p>
+    </div>
+    <div class="panel">
+        <h2>What the AI checks</h2>
+        <div class="mini-list">
+            <div class="mini-item"><span>JD match</span><strong>Embedding + cosine score</strong></div>
+            <div class="mini-item"><span>Keyword coverage</span><strong>Matched highlights</strong></div>
+            <div class="mini-item"><span>Resume quality</span><strong>Grammar and writing score</strong></div>
+            <div class="mini-item"><span>Next step</span><strong>Shortlist or reject by threshold</strong></div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/apply.js') }}"></script>{% endblock %}

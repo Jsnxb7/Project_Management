@@ -43,7 +43,7 @@ async function loadNotifications() {
         item.innerHTML = `
             <div>
                 <h3>${escapeHTML(notification.message)}</h3>
-                <p>${escapeHTML(notification.type)} • ${formatDate(notification.created_at)}</p>
+                <p>${escapeHTML(notification.category || "HRMS")} / ${escapeHTML(notification.type)} / ${formatDate(notification.created_at)}</p>
             </div>
             ${notification.is_read ? "" : `<button class="btn small" data-read-id="${notification.id}">Mark read</button>`}
         `;

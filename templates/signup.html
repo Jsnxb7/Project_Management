@@ -1,27 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Signup | ProjectFlow{% endblock %}
+{% block title %}Signup | PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="auth-card">
-    <p class="eyebrow">Create Your Account</p>
-    <h1>Sign Up</h1>
-    <p>Public signup is enabled. The very first account becomes the Super User automatically. All later signups create normal user accounts that can later be managed inside organizations.</p>
+    <p class="eyebrow">Create Account</p>
+    <h1>Join PeopleOps</h1>
+    <p>The first account becomes Super User. Later signups become Employee accounts until HR updates their role.</p>
 
     <form id="signupForm">
         <label>Name</label>
         <input type="text" id="name" required maxlength="80" autocomplete="name" placeholder="Your full name">
-
         <label>Email</label>
         <input type="email" id="email" required autocomplete="email" placeholder="you@company.com">
-
         <label>Password</label>
         <input type="password" id="password" required minlength="8" autocomplete="new-password" placeholder="Min. 8 characters">
-
         <label>Confirm Password</label>
         <input type="password" id="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Repeat password">
-
-        <button class="btn full" type="submit">Create Account →</button>
+        <button class="btn full" type="submit">Create Account</button>
     </form>
 
     <p id="message" class="message"></p>

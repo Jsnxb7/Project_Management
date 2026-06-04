@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Recruitment | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Recruitment AI Workspace</p>
+        <h1>Job-wise resume screening</h1>
+        <p class="muted">Create JDs, extract keywords, screen one applicant or bulk resumes, and send shortlisted candidates into review/interview flow.</p>
+    </div>
+    <div class="hero-actions">
+        <a class="btn secondary" href="/applications">Review Applications</a>
+        <a class="btn" href="/voice-interview">AI Voice Lab</a>
+    </div>
+</section>
+
+<section class="stats-grid mini-stats" id="screeningStats">
+    <div><span>Jobs</span><b id="statJobs">0</b></div>
+    <div><span>Applications</span><b id="statApplications">0</b></div>
+    <div><span>Shortlisted</span><b id="statShortlisted">0</b></div>
+    <div><span>Pending Reviews</span><b id="statReviews">0</b></div>
+</section>
+
+<section class="details-grid recruitment-grid">
+    <div class="panel">
+        <div class="split">
+            <div>
+                <p class="eyebrow">Step 1</p>
+                <h2>Create Job + JD</h2>
+            </div>
+            <span class="status-pill">JD → Keywords</span>
+        </div>
+        <form id="jobForm" class="stack-form">
+            <label>Title</label><input id="jobTitle" required placeholder="Python Flask Developer">
+            <label>Department</label><input id="jobDepartment" placeholder="Engineering">
+            <div class="form-row">
+                <div><label>Location</label><input id="jobLocation" placeholder="Remote / Hybrid / Office"></div>
+                <div><label>Employment Type</label><select id="jobType"><option>Full-time</option><option>Internship</option><option>Contract</option></select></div>
+            </div>
+            <label>Minimum AI Score</label><input id="minimumScore" type="number" min="1" max="100" value="70">
+            <label>Manual Keywords <span class="muted">optional, comma separated</span></label><input id="jobKeywords" placeholder="Python, Flask, MongoDB, REST API">
+            <div class="form-row">
+                <div>
+                    <label>Extra Viewers <span class="muted">can view applicants/reports</span></label>
+                    <select id="jobViewers" multiple size="5"></select>
+                </div>
+                <div>
+                    <label>Controllers <span class="muted">can screen/review/allot process</span></label>
+                    <select id="jobControllers" multiple size="5"></select>
+                </div>
+            </div>
+            <label>Job Description</label><textarea id="jobDescription" required placeholder="Paste JD, responsibilities, required skills, expected experience..."></textarea>
+            <button class="btn full" type="submit">Create Job, Extract Keywords and Set Access</button>
+        </form>
+        <p id="jobMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <div class="split">
+            <div>
+                <p class="eyebrow">Step 2</p>
+                <h2>Select Job</h2>
+            </div>
+            <button id="refreshJobsBtn" class="btn small secondary" type="button">Refresh</button>
+        </div>
+        <label>Active screening job</label>
+        <select id="jobSelect"><option value="">Select a job...</option></select>
+        <div id="selectedJobBox" class="soft-panel muted">Select a job to view JD keywords and screening limits.</div>
+        <h3>All Jobs</h3>
+        <div id="jobList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="details-grid recruitment-grid">
+    <div class="panel">
+        <div class="split">
+            <div>
+                <p class="eyebrow">Step 3A</p>
+                <h2>Single Resume Screening</h2>
+            </div>
+            <span class="status-pill">one applicant</span>
+        </div>
+        <form id="singleScreenForm" class="stack-form" enctype="multipart/form-data">
+            <label>Candidate Name</label><input id="singleName" placeholder="Candidate name">
+            <label>Candidate Email</label><input id="singleEmail" type="email" placeholder="candidate@email.com">
+            <label>Phone</label><input id="singlePhone" placeholder="Phone number">
+            <label>Resume</label><input id="singleResume" type="file" accept=".pdf,.doc,.docx,.txt" required>
+            <label>Internal Note / Cover Note</label><textarea id="singleNote" placeholder="Optional note to include in screening context"></textarea>
+            <button class="btn full" type="submit">Screen Single Resume</button>
+        </form>
+        <p id="singleMessage" class="message"></p>
+    </div>
+
+    <div class="panel">
+        <div class="split">
+            <div>
+                <p class="eyebrow">Step 3B</p>
+                <h2>Bulk Resume Screening</h2>
+            </div>
+            <span class="status-pill">up to 50 files</span>
+        </div>
+        <form id="bulkScreenForm" class="stack-form" enctype="multipart/form-data">
+            <label>Bulk Resumes</label><input id="bulkResumes" type="file" accept=".pdf,.doc,.docx,.txt" multiple required>
+            <p class="muted">Each file becomes an application under the selected job. Candidate names are derived from file names and can be reviewed later.</p>
+            <button class="btn full" type="submit">Run Bulk Screening</button>
+        </form>
+        <p id="bulkMessage" class="message"></p>
+    </div>
+</section>
+
+<section class="panel" id="screeningResultsPanel" hidden>
+    <div class="split">
+        <div>
+            <p class="eyebrow">Latest Screening Output</p>
+            <h2>Ranked Results</h2>
+        </div>
+        <a class="btn small secondary" href="/applications">Open Full Review</a>
+    </div>
+    <div id="screeningResults" class="card-grid"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/recruitment.js') }}"></script>{% endblock %}

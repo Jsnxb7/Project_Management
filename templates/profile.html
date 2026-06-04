@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Profile | ProjectFlow{% endblock %}
+{% block title %}Profile | PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="page-head">
-    <p class="eyebrow">Account</p>
-    <h1>My Profile</h1>
+    <p class="eyebrow">Self Service</p>
+    <h1>My HRMS Profile</h1>
 </section>
 
 <section class="details-grid">
     <div class="panel">
-        <h2>Profile Details</h2>
+        <h2>Account Details</h2>
         <form id="profileForm">
             <label>Name</label>
             <input type="text" id="profileName" required placeholder="Your full name">
-
             <label>Email</label>
             <input type="email" id="profileEmail" required placeholder="you@company.com">
-
             <button class="btn" type="submit">Save Profile</button>
         </form>
         <p id="profileMessage" class="message"></p>
@@ -28,10 +26,8 @@
         <form id="passwordForm">
             <label>Current Password</label>
             <input type="password" id="currentPassword" required placeholder="Current password">
-
             <label>New Password</label>
-            <input type="password" id="newPassword" required placeholder="New password (min 8 chars)">
-
+            <input type="password" id="newPassword" required placeholder="New password">
             <button class="btn" type="submit">Update Password</button>
         </form>
         <p id="passwordMessage" class="message"></p>
@@ -39,27 +35,15 @@
 </section>
 
 <section class="stats-grid">
-    <article class="stat-card">
-        <span>Projects</span>
-        <strong id="profileProjects">0</strong>
-    </article>
-    <article class="stat-card">
-        <span>Assigned Jobs</span>
-        <strong id="profileJobs">0</strong>
-    </article>
-    <article class="stat-card">
-        <span>Completed</span>
-        <strong id="profileDone">0</strong>
-    </article>
-    <article class="stat-card">
-        <span>Account Status</span>
-        <strong class="small-stat" style="font-size:1.4rem;color:var(--green)">Active</strong>
-    </article>
+    <article class="stat-card"><span>Attendance Logs</span><strong id="profileAttendance">0</strong></article>
+    <article class="stat-card"><span>Payslips</span><strong id="profilePayslips">0</strong></article>
+    <article class="stat-card"><span>Reviews</span><strong id="profileReviews">0</strong></article>
+    <article class="stat-card"><span>HRMS Role</span><strong id="profileRole" class="small-stat" style="font-size:1.1rem">Employee</strong></article>
 </section>
 
 <section class="panel">
-    <h2>Recent Activity</h2>
-    <div id="profileActivity" class="activity-list"></div>
+    <h2>Employee Profile</h2>
+    <div id="employeeProfileSummary" class="mini-list"></div>
 </section>
 
 <section class="panel danger-soft">
@@ -71,20 +55,8 @@
         <button id="logoutProfileBtn" class="btn ghost danger-outline" type="button">Logout</button>
     </div>
 </section>
-
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
-<script>
-document.getElementById("logoutProfileBtn")?.addEventListener("click", async () => {
-  const token = localStorage.getItem("token");
-  try {
-    await fetch("/api/auth/logout", {method: "POST", headers: token ? {"Authorization": `Bearer ${token}`} : {}});
-  } catch (e) {}
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-  window.location.href = "/login";
-});
-</script>
 {% endblock %}

@@ -4,7 +4,7 @@ from bson import ObjectId
 
 from database.db import notifications_collection
 from utils.response import ok, fail
-from services.permission_service import to_object_id
+from services.hrms_service import to_object_id
 
 notification_bp = Blueprint("notification_bp", __name__)
 
@@ -14,9 +14,10 @@ def notification_public(notification):
         "id": str(notification["_id"]),
         "message": notification.get("message"),
         "type": notification.get("type"),
+        "category": notification.get("category", "HRMS"),
         "is_read": notification.get("is_read", False),
-        "project_id": str(notification["project_id"]) if notification.get("project_id") else None,
-        "task_id": str(notification["task_id"]) if notification.get("task_id") else None,
+        "entity_type": notification.get("entity_type"),
+        "entity_id": str(notification["entity_id"]) if notification.get("entity_id") else None,
         "created_at": notification["created_at"].isoformat() if notification.get("created_at") else None,
     }
 

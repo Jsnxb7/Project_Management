@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Theme Kits | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Personalization</p>
+    <h1>User-Specific Permanent Theme Kits</h1>
+    <p class="muted">Choose a complete UI kit or fine-tune the colors. Every logged-in user gets a separate permanent theme saved in MongoDB Atlas.</p>
+</section>
+
+<section class="panel">
+    <div class="split compact">
+        <div>
+            <h2>Ready Theme Kits</h2>
+            <p class="muted">These kits were mapped to the current UI elements: sidebar, cards, forms, tables, buttons, status pills, recruitment reports, and dashboard charts.</p>
+        </div>
+        <button class="btn secondary small" id="resetThemeBtn" type="button">Reset to Default</button>
+    </div>
+    <div class="theme-kit-grid" id="themeKitGrid"></div>
+</section>
+
+<section class="details-grid">
+    <div class="panel">
+        <h2>Fine Tune Current Kit</h2>
+        <form id="themeForm">
+            <label>Theme Name</label><input id="themeName" value="Neo Mint">
+            <label>Primary Accent</label><input id="primaryColor" type="color" value="#78e0c2">
+            <label>Secondary Accent</label><input id="secondaryColor" type="color" value="#8fb7ff">
+            <label>Background</label><input id="backgroundColor" type="color" value="#080b12">
+            <label>Text Color</label><input id="textColor" type="color" value="#f8fbff">
+            <label>Muted Text</label><input id="mutedColor" type="color" value="#91a4b8">
+            <label>Sidebar Background</label><input id="sidebarColor" type="color" value="#080b12">
+            <label>Corner Radius</label>
+            <select id="themeRadius">
+                <option value="6px">Dense Sharp</option>
+                <option value="8px">Sharp Modern</option>
+                <option value="12px">Balanced</option>
+                <option value="16px">Soft Rounded</option>
+                <option value="24px">Pill Rounded</option>
+            </select>
+            <label>Density</label>
+            <select id="themeDensity">
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+            </select>
+            <label>Animated Background Strength</label>
+            <input id="videoOpacity" type="range" min="0" max="0.22" step="0.01" value="0.12">
+            <button class="btn full" type="submit">Save My Permanent Theme</button>
+        </form>
+    </div>
+
+    <div class="panel theme-preview-shell">
+        <div>
+            <h2>Live Interface Preview</h2>
+            <p class="muted">Preview covers the side navigation, dashboard cards, tags, form controls, and AI recruitment highlights.</p>
+        </div>
+        <div class="preview-sidebar-card">
+            <div class="split compact">
+                <span class="brand-mark">HR</span>
+                <span class="tag">Sidebar</span>
+            </div>
+            <div class="preview-line accent"></div>
+            <div class="preview-line"></div>
+            <div class="preview-line short"></div>
+        </div>
+        <div class="stats-grid mini-stats">
+            <div><span>Resume AI</span><b>86%</b></div>
+            <div><span>Attendance</span><b>Live</b></div>
+            <div><span>Interviews</span><b>4</b></div>
+        </div>
+        <div class="tag-row">
+            <span class="tag">Matched: Flask</span>
+            <span class="tag">Matched: MongoDB</span>
+            <span class="tag success-card">Voice Ready</span>
+            <span class="tag danger-tag">Missing: Docker</span>
+        </div>
+        <div class="soft-panel">
+            <h3>AI Candidate Report</h3>
+            <p class="muted">Candidate passed the minimum score using JD similarity, grammar quality, and matched keywords.</p>
+            <button class="btn small" type="button">Primary Action</button>
+            <button class="btn secondary small" type="button">Secondary</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/themes.js') }}"></script>{% endblock %}

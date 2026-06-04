@@ -1,32 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}ProjectFlow | Team Job Management{% endblock %}
+{% block title %}AI PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="hero-shell">
         <div>
-            <p class="eyebrow">Team Job Management</p>
-            <h1>Ship faster.<br>Together.</h1>
+            <p class="eyebrow">AI-powered HR management</p>
+            <h1>Build the future of HR with intelligent recruitment, people ops, and real-time dashboards.</h1>
             <p class="hero-text">
-                A full-stack Flask and MongoDB Atlas application for secure project collaboration —
-                role-based member control, Kanban job tracking, comments, attachments,
-                notifications, activity logs, organization management, and progress analytics.
+                A Flask + MongoDB Atlas HRMS rebuilt around role-based access, employee management, performance tracking,
+                AI resume screening, AI voice interviews, public candidate applications, and personalized user themes.
             </p>
             <div class="hero-actions">
-                <a href="/signup" class="btn">Create Account</a>
-                <a href="/login" class="btn secondary">Login</a>
-                <a href="/projects" class="btn ghost" data-auth-link>Open Projects →</a>
+                <a href="/apply" class="btn">Candidate Apply</a>
+                <a href="/careers" class="btn secondary">View Careers</a>
+                <a href="/login" class="btn ghost">Staff Login</a>
+                <a href="/dashboard" class="btn" data-auth-link>Open Dashboard</a>
             </div>
         </div>
-
         <aside class="hero-panel panel">
-            <p class="eyebrow">Built for the assignment</p>
+            <p class="eyebrow">Modules</p>
             <div class="feature-grid">
-                <article class="feature-card"><strong>JWT</strong><span>Protected APIs</span></article>
-                <article class="feature-card"><strong>RBAC</strong><span>Super User / Org roles</span></article>
-                <article class="feature-card"><strong>Kanban</strong><span>Job board workflow</span></article>
-                <article class="feature-card"><strong>Atlas</strong><span>Secure MongoDB config</span></article>
+                <article class="feature-card"><strong>AI</strong><span>Resume, chat, and voice screening</span></article>
+                <article class="feature-card"><strong>RBAC</strong><span>Super user, admin, HR, managers, interviewers, employees</span></article>
+                <article class="feature-card"><strong>HRMS</strong><span>Employees, attendance, payroll, performance</span></article>
+                <article class="feature-card"><strong>Live</strong><span>Interview rooms and activity dashboards</span></article>
             </div>
         </aside>
     </div>

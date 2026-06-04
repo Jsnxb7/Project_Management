@@ -1,64 +1,60 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | ProjectFlow{% endblock %}
+{% block title %}Dashboard | PeopleOps HRMS{% endblock %}
 
 {% block content %}
 <section class="page-head split">
     <div>
-        <p class="eyebrow">Dashboard</p>
-        <h1>Workspace Overview</h1>
-        <p class="muted">Track projects, assigned tasks, overdue work, relation warnings, and role-based workspace scope.</p>
+        <p class="eyebrow">HRMS Dashboard</p>
+        <h1 id="dashboardTitle">People Operations</h1>
+        <p class="muted" id="dashboardSubtitle">Role-aware HR, payroll, attendance, performance, and company visibility.</p>
     </div>
-    <a class="btn" href="/projects">View Projects</a>
+    <div class="hero-actions"><a class="btn" href="/employees">Employee Directory</a><a class="btn secondary" data-recruitment-link href="/recruitment">Recruitment AI</a></div>
 </section>
 
 <section class="details-grid">
     <div class="panel">
-        <h2>Role Scope</h2>
-        <p class="muted">Current access level</p>
-        <div class="summary-row"><span>Portal Role</span><strong id="portalRole">Member</strong></div>
-        <div class="summary-row"><span>Workspace Scope</span><strong id="workspaceScope">Member</strong></div>
+        <h2>Role and Access</h2>
+        <div class="summary-row"><span>Current Role</span><strong id="hrmsRole">Employee</strong></div>
+        <div class="summary-row"><span>Visible Employees</span><strong id="employeeScope">0</strong></div>
+        <div id="permissionList" class="role-stack"></div>
     </div>
-    <div class="panel warning-panel">
-        <h2>Relation Warnings</h2>
-        <p class="muted">Soft warnings for org, project, member, and task relation violations.</p>
-        <strong id="warningTotal" class="warning-count">0</strong>
+    <div class="panel">
+        <h2>Attendance Snapshot</h2>
+        <div class="summary-row"><span>Present Logs</span><strong id="presentLogs">0</strong></div>
+        <div class="summary-row"><span>Late Marks</span><strong id="lateLogs">0</strong></div>
+        <div class="summary-row"><span>Absences</span><strong id="absentLogs">0</strong></div>
     </div>
 </section>
 
-<section class="stats-grid">
-    <article class="stat-card"><span>Total Projects</span><strong id="totalProjects">0</strong></article>
-    <article class="stat-card"><span>Total Tasks</span><strong id="totalTasks">0</strong></article>
-    <article class="stat-card"><span>My Tasks</span><strong id="myTasks">0</strong></article>
-    <article class="stat-card"><span>Overdue</span><strong id="overdueTasks">0</strong></article>
+<section class="stats-grid" id="primaryStats">
+    <article class="stat-card"><span>Total Employees</span><strong id="totalEmployees">0</strong></article>
+    <article class="stat-card"><span>Active Employees</span><strong id="activeEmployees">0</strong></article>
+    <article class="stat-card"><span>Payroll Pending</span><strong id="payrollPending">0</strong></article>
+    <article class="stat-card"><span>Leave Pending</span><strong id="leavePending">0</strong></article>
 </section>
 
 <section class="details-grid">
-    <div class="panel">
-        <h2>Task Breakdown</h2>
-        <div id="statusSummary">
-            <div class="summary-row"><span>To Do</span><strong id="todoTasks">0</strong></div>
-            <div class="summary-row"><span>In Progress</span><strong id="progressTasks">0</strong></div>
-            <div class="summary-row"><span>Done</span><strong id="doneTasks">0</strong></div>
-            <div class="summary-row"><span>High / Critical</span><strong id="highPriorityTasks">0</strong></div>
-        </div>
+    <div class="panel" id="companyPanel">
+        <h2>Company-Wide Dashboard</h2>
+        <p class="muted">Management Admin and HR leadership can see both individual and company-wide HRMS metrics.</p>
+        <div id="departmentList" class="mini-list"></div>
     </div>
-    <div class="panel">
-        <h2>Overall Completion</h2>
-        <p class="muted"><strong id="completionRate" style="color:var(--teal)">0%</strong> of visible workspace tasks are complete.</p>
-        <div class="progress-track"><div id="completionFill" class="progress-fill"></div></div>
+    <div class="panel" id="rolePanel">
+        <h2 id="rolePanelTitle">Role Workspace</h2>
+        <div id="rolePanelBody" class="mini-list"></div>
     </div>
 </section>
 
 <section class="panel">
     <div class="split">
         <div>
-            <h2>Warning Center</h2>
-            <p class="muted">These are warnings, not crash errors. Fix them from Organizations, Portal Users, or Project Manage pages.</p>
+            <h2>Recent HR Activity</h2>
+            <p class="muted">Attendance and performance updates from your permitted scope.</p>
         </div>
-        <a class="btn secondary" href="/organizations">Open Organizations</a>
+        <a class="btn secondary" href="/performance">Performance</a>
     </div>
-    <div id="warningList" class="warning-list muted">No relation warnings found.</div>
+    <div id="activityList" class="mini-list"></div>
 </section>
 {% endblock %}
 

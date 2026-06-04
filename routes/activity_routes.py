@@ -1,42 +1,37 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from bson import ObjectId
 
 from database.db import activity_logs_collection, users_collection
-from utils.response import ok, fail
-from services.permission_service import get_project_for_user
+from utils.response import ok
+from services.hrms_service import role_permissions, to_object_id, user_role
+
 
 activity_bp = Blueprint("activity_bp", __name__)
 
 
 def activity_public(activity):
-    user = users_collection.find_one({"_id": activity["user_id"]})
+    actor = users_collection.find_one({"_id": activity.get("actor_id")})
     return {
         "id": str(activity["_id"]),
-        "project_id": str(activity["project_id"]),
-        "task_id": str(activity["task_id"]) if activity.get("task_id") else None,
-        "user_id": str(activity["user_id"]),
-        "user_name": user.get("name") if user else "Unknown User",
-        "action_type": activity.get("action_type"),
+        "scope": activity.get("scope", "HRMS"),
+        "category": activity.get("category", "General"),
+        "actor_id": str(activity.get("actor_id")) if activity.get("actor_id") else None,
+        "actor_name": actor.get("name") if actor else "System",
         "description": activity.get("description"),
+        "metadata": activity.get("metadata", {}),
         "created_at": activity["created_at"].isoformat() if activity.get("created_at") else None,
     }
 
 
-@activity_bp.get("/project/<project_id>")
+@activity_bp.get("")
 @jwt_required()
-def get_project_activity(project_id):
-    user_id = get_jwt_identity()
-
-    project = get_project_for_user(project_id, user_id)
-    if not project:
-        return fail("Project not found or access denied", 404)
-
-    logs = list(
-        activity_logs_collection
-        .find({"project_id": ObjectId(project_id)})
-        .sort("created_at", -1)
-        .limit(50)
-    )
-
-    return ok("Activity logs fetched", {"activities": [activity_public(a) for a in logs]})
+def get_hr_activity():
+    user_id = to_object_id(get_jwt_identity())
+    user = users_collection.find_one({"_id": user_id})
+    permissions = role_permissions(user_role(user))
+    query = {} if permissions.get("can_view_company_dashboard") else {"actor_id": user_id}
+    category = (request.args.get("category") or "").strip()
+    if category:
+        query["category"] = category
+    logs = list(activity_logs_collection.find(query).sort("created_at", -1).limit(100))
+    return ok("HRMS activity logs fetched", {"activities": [activity_public(a) for a in logs]})

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Careers | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Candidate Portal</p>
+        <h1>Open Roles</h1>
+        <p class="muted">This outsider view is intentionally separated from the internal HRMS. Candidates can only see jobs, apply, upload resumes, and join interview rooms if invited.</p>
+    </div>
+    <a class="btn" href="/apply">Apply Now</a>
+</section>
+<section class="panel">
+    <div id="publicJobs" class="card-grid"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/careers.js') }}"></script>{% endblock %}

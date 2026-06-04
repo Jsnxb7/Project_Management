@@ -1,59 +1,36 @@
-# Deployment Guide
+# PeopleOps HRMS Deployment
 
-## 1. Prepare Environment Variables
-
-Set these variables in your deployment platform:
+## Environment Variables
 
 ```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/team_task_db?retryWrites=true&w=majority
-JWT_SECRET_KEY=your-long-random-jwt-secret
-SECRET_KEY=your-long-random-flask-secret
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/hrms_db?retryWrites=true&w=majority
+DB_NAME=hrms_db
+SECRET_KEY=replace-me
+JWT_SECRET_KEY=replace-me
 FLASK_ENV=production
 ```
 
-Do not commit `.env` to GitHub.
-
-## 2. MongoDB Atlas Checklist
-
-1. Create a dedicated database user.
-2. Give only read/write access to the project database.
-3. Add the deployment platform IP in Network Access.
-4. If the platform has no fixed IP, use `0.0.0.0/0` only if required.
-5. Rotate the password if it is ever exposed.
-
-## 3. Render Deployment
-
-Build command:
+## Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Start command:
+## Run
 
 ```bash
 gunicorn app:create_app()
 ```
 
-## 4. Local Run
+## Health Check
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-python app.py
-```
+After deployment, verify:
 
-## 5. Main Routes
+- `/login` renders.
+- `/api/hrms/roles` returns `401` without authentication.
+- Authenticated users can open `/dashboard`.
+- Management Admin or HR leadership can open `/portal/users`.
 
-- `/`
-- `/signup`
-- `/login`
-- `/dashboard`
-- `/projects`
-- `/profile`
-- `/notifications`
-- `/project/<project_id>/tasks`
-- `/project/<project_id>/manage`
-- `/project/<project_id>/analytics`
+## MongoDB Notes
+
+Give the application read/write access to the HRMS database. The app creates non-destructive indexes for users, employees, attendance, payroll, performance reviews, leave requests, recruitment candidates, documents, HR cases, learning records, notifications, and activity logs.

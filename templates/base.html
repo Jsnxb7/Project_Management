@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ProjectFlow{% endblock %}</title>
+    <title>{% block title %}AI PeopleOps HRMS{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,29 +15,74 @@
         <source src="{{ url_for('static', filename='images/stars.mp4') }}" type="video/mp4">
     </video>
     <div class="page-overlay" aria-hidden="true"></div>
+    <div class="mobile-scrim" id="mobileScrim" aria-hidden="true"></div>
 
-    <nav class="navbar glass-nav">
-        <a class="brand" href="/" aria-label="ProjectFlow home">
-            <span class="brand-mark">TF</span>
-            <span>TaskFlow</span>
-        </a>
-        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation">☰</button>
-        <div class="nav-links" id="navLinks">
-            <a data-auth-link href="/dashboard">Dashboard</a>
-            <a data-auth-link href="/organizations">Organizations</a>
-            <a data-auth-link href="/teams">Teams</a>
-            <a data-auth-link href="/projects">Projects</a>
-            <a data-auth-link href="/my-tasks">My Jobs</a>
-            <a data-super-link href="/portal/users">Portal Users</a>
-            <a data-super-link href="/portal/import-users">Bulk Import</a>
-            <a data-auth-link href="/notifications">Notifications</a>
-            <a data-auth-link href="/profile">Profile</a>
-            <a data-guest-link href="/login">Login</a>
-            <a data-guest-link class="btn small" href="/signup">Get Started</a>
+    <aside class="sidebar glass-nav" id="sidebar" aria-label="Main navigation">
+        <div class="sidebar-top">
+            <a class="brand" href="/" aria-label="PeopleOps HRMS home">
+                <span class="brand-mark">HR</span>
+                <span class="brand-text">AI PeopleOps HRMS</span>
+            </a>
+            <a class="brand-vertical" href="/" aria-label="PeopleOps HRMS home">AI PeopleOps HRMS</a>
+            <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar" aria-expanded="false" title="Expand sidebar">☰</button>
         </div>
-    </nav>
 
-    <main class="main">
+        <div class="sidebar-user" id="sidebarUser">
+            <div class="avatar" id="sidebarAvatar">G</div>
+            <div class="sidebar-user-text">
+                <strong id="sidebarUserName">Guest Portal</strong>
+                <span id="sidebarUserRole">Limited access</span>
+            </div>
+        </div>
+
+        <nav class="nav-links" id="navLinks">
+            <div class="nav-group">
+                <span class="nav-heading">Public</span>
+                <a data-guest-link href="/careers"><span class="nav-icon">◎</span><span class="nav-label">Careers</span></a>
+                <a data-guest-link href="/apply"><span class="nav-icon">✦</span><span class="nav-label">Apply</span></a>
+                <a data-guest-link href="/login"><span class="nav-icon">→</span><span class="nav-label">Login</span></a>
+            </div>
+
+            <div class="nav-group" data-auth-link>
+                <span class="nav-heading">Workspace</span>
+                <a data-auth-link href="/dashboard"><span class="nav-icon">▣</span><span class="nav-label">Dashboard</span></a>
+                <a data-people-link href="/employees"><span class="nav-icon">◉</span><span class="nav-label">Employees</span></a>
+                <a data-auth-link href="/attendance"><span class="nav-icon">◷</span><span class="nav-label">Attendance</span></a>
+                <a data-hr-lead-link href="/payroll"><span class="nav-icon">₹</span><span class="nav-label">Payroll</span></a>
+                <a data-auth-link href="/performance"><span class="nav-icon">◇</span><span class="nav-label">Performance</span></a>
+            </div>
+
+            <div class="nav-group" data-recruitment-link>
+                <span class="nav-heading">Recruitment AI</span>
+                <a data-recruitment-link href="/recruitment"><span class="nav-icon">✧</span><span class="nav-label">Recruitment</span></a>
+                <a data-recruitment-link href="/applications"><span class="nav-icon">▤</span><span class="nav-label">Applications</span></a>
+                <a data-interview-link href="/interviews"><span class="nav-icon">◌</span><span class="nav-label">Interview Rooms</span></a>
+                <a data-interview-link href="/voice-interview"><span class="nav-icon">♬</span><span class="nav-label">Voice AI Lab</span></a>
+            </div>
+
+            <div class="nav-group" data-auth-link>
+                <span class="nav-heading">Personal</span>
+                <a data-auth-link href="/themes"><span class="nav-icon">◐</span><span class="nav-label">Theme Kits</span></a>
+                <a data-auth-link href="/notifications"><span class="nav-icon">!</span><span class="nav-label">Notifications</span></a>
+                <a data-auth-link href="/profile"><span class="nav-icon">●</span><span class="nav-label">Profile</span></a>
+            </div>
+
+            <div class="nav-group" data-admin-link>
+                <span class="nav-heading">Admin</span>
+                <a data-admin-link href="/portal/users"><span class="nav-icon">▥</span><span class="nav-label">Users</span></a>
+                <a data-super-link href="/portal/import-users"><span class="nav-icon">⇪</span><span class="nav-label">Bulk Import</span></a>
+            </div>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <a class="btn small sidebar-cta" data-guest-link href="/apply"><span class="nav-icon">✦</span><span class="nav-label">Start Application</span></a>
+            <button class="btn small secondary sidebar-cta" data-auth-link id="logoutBtn" type="button"><span class="nav-icon">⎋</span><span class="nav-label">Logout</span></button>
+        </div>
+    </aside>
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open navigation">☰</button>
+
+    <main class="main shell-main">
         {% block content %}{% endblock %}
     </main>
 

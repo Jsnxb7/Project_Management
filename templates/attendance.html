@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance | PeopleOps HRMS{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Attendance</p>
+        <h1>Attendance Logs</h1>
+        <p class="muted">Check-ins, check-outs, working hours, late marks, absence records, and manager views.</p>
+    </div>
+    <button class="btn" id="checkInBtn" type="button">Check In</button>
+</section>
+
+<section class="panel">
+    <div id="attendanceList" class="mini-list"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/attendance.js') }}"></script>
+{% endblock %}

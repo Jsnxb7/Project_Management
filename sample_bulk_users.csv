@@ -1,3 +1,4 @@
-name,email,password,portal_role,organization_name,org_role,team_name,team_role,is_active
-Asha Mehta,asha@example.com,TempPass123,Member,Engineering,Member,Frontend,Member,true
-Rohan Singh,rohan@example.com,TempPass123,Team Lead,Engineering,Team Lead,Frontend,Team Lead,true
+name,email,password,hrms_role,employee_code,department,designation,phone
+Anika Sharma,anika.sharma@example.com,TempPass123,HR Manager,EMP001,Human Resources,HR Manager,+91-9000000001
+Rohan Mehta,rohan.mehta@example.com,TempPass123,Payroll Manager,EMP002,Payroll,Payroll Manager,+91-9000000002
+Sara Khan,sara.khan@example.com,TempPass123,Employee,EMP003,Operations,Operations Executive,+91-9000000003

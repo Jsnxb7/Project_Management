@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Interviews | AI PeopleOps HRMS{% endblock %}
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Interview Rooms</p>
+        <h1>Human + AI Interview Connections</h1>
+        <p class="muted">Interviewers can connect with candidates through generated room links. These links work for users on the same deployed server and can be shared externally.</p>
+    </div>
+</section>
+<section class="panel">
+    <div id="interviewList" class="card-grid"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/interviews.js') }}"></script>{% endblock %}
