@@ -758,7 +758,7 @@ Do not commit `.env`.
 | File | Purpose |
 | --- | --- |
 | `app.py` | Main Flask app entry point |
-| `config.py` | App configuration and environment loading |
+| `config.example.py` | Safe template for local `config.py`; copy it to `config.py` before running |
 | `database/db.py` | MongoDB Atlas connection |
 | `routes/auth_routes.py` | Login/signup/authentication APIs |
 | `routes/hrms_routes.py` | Employee, attendance, payroll, performance APIs |
@@ -1123,3 +1123,88 @@ Wait for HR decision
 ```
 
 These steps become visible to both HR/controllers and the candidate.
+
+---
+
+## 12. GitHub-Safe `config.py` Setup
+
+The real `config.py` file is intentionally **not included for GitHub upload** because it can indirectly expose environment setup and deployment secrets. The project includes `config.example.py` instead.
+
+### Create `config.py` locally
+
+From the project root, copy the example file:
+
+```powershell
+copy config.example.py config.py
+```
+
+On Linux/macOS:
+
+```bash
+cp config.example.py config.py
+```
+
+### Create `.env` locally
+
+Copy the environment example:
+
+```powershell
+copy .env.example .env
+```
+
+On Linux/macOS:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your MongoDB Atlas and secret values:
+
+```env
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/hrms_db?retryWrites=true&w=majority
+DB_NAME=hrms_db
+SECRET_KEY=replace-with-a-long-random-secret
+JWT_SECRET_KEY=replace-with-another-long-random-secret
+FLASK_ENV=development
+UPLOAD_FOLDER=static/uploads
+```
+
+### Why this is needed
+
+`app.py` imports `Config` from `config.py`, so the app needs a local `config.py` file to run. However, Git should only track `config.example.py`. The real `config.py` and `.env` stay private on your machine or deployment server.
+
+### Git tracking rules
+
+The `.gitignore` now includes:
+
+```gitignore
+.env
+config.py
+!.env.example
+!config.example.py
+```
+
+This means:
+
+- `.env` is private.
+- `config.py` is private.
+- `.env.example` is safe to upload.
+- `config.example.py` is safe to upload.
+
+### Files you should commit
+
+```text
+config.example.py
+.env.example
+README.md
+README.txt
+```
+
+### Files you should not commit
+
+```text
+config.py
+.env
+```
+
+If the project fails with `ModuleNotFoundError: No module named 'config'`, create `config.py` by copying `config.example.py`.
