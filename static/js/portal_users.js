@@ -60,6 +60,7 @@ function renderUsers(users, meta) {
                     ${roles.map(role => `<option value="${escapeHTML(role)}" ${user.hrms_role === role ? "selected" : ""}>${escapeHTML(role)}</option>`).join("")}
                 </select>
                 <button class="btn small secondary" data-toggle-user="${user.id}" data-active="${user.is_active ? "true" : "false"}">${user.is_active ? "Deactivate" : "Activate"}</button>
+                <button class="btn small danger-btn" data-delete-user="${user.id}" data-user-name="${escapeHTML(user.name || user.email || "this user")}">Delete</button>
             </div>
         </article>
     `).join("");
@@ -68,6 +69,9 @@ function renderUsers(users, meta) {
     });
     document.querySelectorAll("[data-toggle-user]").forEach(button => {
         button.addEventListener("click", () => updateUser(button.dataset.toggleUser, {is_active: button.dataset.active !== "true"}));
+    });
+    document.querySelectorAll("[data-delete-user]").forEach(button => {
+        button.addEventListener("click", () => deleteUser(button.dataset.deleteUser, button.dataset.userName || "this user"));
     });
 }
 
@@ -95,6 +99,14 @@ async function loadUsers() {
 
 async function updateUser(id, payload) {
     const res = await fetch(`/api/portal/users/${id}`, {method: "PATCH", headers: tokenHeaders(), body: JSON.stringify(payload)});
+    const data = await res.json();
+    msg(data.message, data.success, data.warning);
+    if (data.success) loadUsers();
+}
+
+async function deleteUser(id, label) {
+    if (!window.confirm(`Delete ${label}? This removes the user account and linked employee profile.`)) return;
+    const res = await fetch(`/api/portal/users/${id}`, {method: "DELETE", headers: tokenHeaders()});
     const data = await res.json();
     msg(data.message, data.success, data.warning);
     if (data.success) loadUsers();

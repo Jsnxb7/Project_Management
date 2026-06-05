@@ -3,9 +3,10 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import csv
 import io
+import json
 
 from app import bcrypt
-from database.db import users_collection, employees_collection
+from database.db import users_collection, employees_collection, notifications_collection, user_theme_collection
 from utils.response import ok, fail, warn
 from utils.validators import valid_email, valid_password
 from services.hrms_service import HRMS_ROLES, normalize_role, role_permissions, serialize_employee, to_object_id, user_role
@@ -16,11 +17,15 @@ portal_bp = Blueprint("portal_bp", __name__)
 
 def current_user():
     user_id = to_object_id(get_jwt_identity())
-    return users_collection.find_one({"_id": user_id}) if user_id else None
+    return users_collection.find_one({"_id": user_id, "is_active": True}) if user_id else None
 
 
 def can_manage_users(user):
     return role_permissions(user_role(user)).get("can_manage_users")
+
+
+def can_bulk_import_users(user):
+    return role_permissions(user_role(user)).get("is_super_user")
 
 
 def user_public(user):
@@ -140,19 +145,55 @@ def update_user(user_id):
     return ok("HRMS user updated")
 
 
+@portal_bp.delete("/users/<user_id>")
+@jwt_required()
+def delete_user(user_id):
+    me = current_user()
+    if not can_manage_users(me):
+        return warn("Warning: your HRMS role cannot delete users.")
+    target_id = to_object_id(user_id)
+    if not target_id:
+        return fail("Invalid user id")
+    if target_id == me["_id"]:
+        return fail("You cannot delete yourself")
+    target = users_collection.find_one({"_id": target_id})
+    if not target:
+        return fail("User not found", 404)
+    target_role = user_role(target)
+    if target_role == "Super User":
+        other_super_users = users_collection.count_documents({
+            "_id": {"$ne": target_id},
+            "is_active": True,
+            "$or": [
+                {"hrms_role": "Super User"},
+                {"portal_role": "Super User"},
+                {"role": "Super User"},
+            ],
+        })
+        if other_super_users == 0:
+            return fail("You cannot delete the last active Super User")
+
+    users_collection.delete_one({"_id": target_id})
+    employees_collection.delete_many({"user_id": target_id})
+    notifications_collection.delete_many({"user_id": target_id})
+    user_theme_collection.delete_many({"user_id": target_id})
+    return ok("User deleted successfully")
+
+
 @portal_bp.post("/import/preview")
 @jwt_required()
 def preview_import():
     me = current_user()
-    if not can_manage_users(me):
+    if not can_bulk_import_users(me):
         return warn("Warning: your HRMS role cannot import users.")
     upload = request.files.get("file")
-    if not upload:
-        return fail("Upload a CSV file.")
-    rows = list(csv.DictReader(io.StringIO(upload.read().decode("utf-8-sig"))))
+    try:
+        rows = parse_import_rows(upload, request.get_json(silent=True) if request.is_json else None)
+    except ValueError as exc:
+        return fail(str(exc))
     normalized = [normalize_import_row(row, index + 1) for index, row in enumerate(rows)]
     return ok("HRMS import preview ready", {
-        "rows": normalized[:50],
+        "rows": normalized,
         "stats": {
             "total_rows": len(normalized),
             "valid_rows": sum(1 for row in normalized if row["valid"]),
@@ -165,10 +206,12 @@ def preview_import():
 @jwt_required()
 def commit_import():
     me = current_user()
-    if not can_manage_users(me):
+    if not can_bulk_import_users(me):
         return warn("Warning: your HRMS role cannot import users.")
-    rows = request.get_json(silent=True, force=False) or {}
-    submitted = rows.get("rows") or []
+    try:
+        submitted = rows_from_json_payload(request.get_json(silent=True, force=False) or {"rows": []})
+    except ValueError as exc:
+        return fail(str(exc))
     created = 0
     skipped = []
     for index, row in enumerate(submitted):
@@ -213,11 +256,52 @@ def portal_summary():
     })
 
 
+def parse_import_rows(upload=None, payload=None):
+    if payload is not None:
+        return rows_from_json_payload(payload)
+    if not upload:
+        raise ValueError("Upload a CSV or JSON file.")
+
+    raw = upload.read().decode("utf-8-sig")
+    filename = (upload.filename or "").lower()
+    content_type = (upload.content_type or "").lower()
+    if filename.endswith(".json") or "json" in content_type:
+        return rows_from_json_payload(json.loads(raw))
+    if filename.endswith(".csv") or "csv" in content_type or not filename:
+        return list(csv.DictReader(io.StringIO(raw)))
+    raise ValueError("Unsupported import file. Upload CSV or JSON.")
+
+
+def rows_from_json_payload(payload):
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        rows = None
+        for key in ("users", "rows", "data"):
+            if key in payload:
+                rows = payload.get(key)
+                break
+    else:
+        rows = None
+    if not isinstance(rows, list):
+        raise ValueError('JSON import must be an array, or an object with a "users", "rows", or "data" array.')
+    if not all(isinstance(row, dict) for row in rows):
+        raise ValueError("Every JSON import row must be an object.")
+    return rows
+
+
+def import_text(row, key, default=""):
+    value = row.get(key, default)
+    if value is None:
+        return default
+    return str(value).strip()
+
+
 def normalize_import_row(row, index):
-    name = (row.get("name") or row.get("full_name") or "").strip()
-    email = (row.get("email") or "").strip().lower()
-    password = row.get("password") or row.get("temporary_password") or ""
-    role = normalize_role(row.get("hrms_role") or row.get("role") or "Employee")
+    name = import_text(row, "name") or import_text(row, "full_name")
+    email = import_text(row, "email").lower()
+    password = import_text(row, "password") or import_text(row, "temporary_password")
+    role = normalize_role(import_text(row, "hrms_role") or import_text(row, "role") or "Employee")
     errors = []
     if not name:
         errors.append("Name is required.")
@@ -233,10 +317,10 @@ def normalize_import_row(row, index):
         "email": email,
         "password": password,
         "hrms_role": role,
-        "employee_code": row.get("employee_code") or "",
-        "department": row.get("department") or "Unassigned",
-        "designation": row.get("designation") or role,
-        "phone": row.get("phone") or "",
+        "employee_code": import_text(row, "employee_code"),
+        "department": import_text(row, "department", "Unassigned") or "Unassigned",
+        "designation": import_text(row, "designation", role) or role,
+        "phone": import_text(row, "phone"),
         "valid": not errors,
         "errors": errors,
     }

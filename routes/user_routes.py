@@ -31,7 +31,7 @@ def public_user(user):
 @jwt_required()
 def get_profile():
     user_id = to_object_id(get_jwt_identity())
-    user = users_collection.find_one({"_id": user_id})
+    user = users_collection.find_one({"_id": user_id, "is_active": True})
     if not user:
         return fail("User not found", 404)
 
@@ -54,6 +54,8 @@ def get_profile():
 @jwt_required()
 def update_profile():
     user_id = to_object_id(get_jwt_identity())
+    if not users_collection.find_one({"_id": user_id, "is_active": True}):
+        return fail("User not found", 404)
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -81,7 +83,7 @@ def change_password():
     data = request.get_json() or {}
     current_password = data.get("current_password") or ""
     new_password = data.get("new_password") or ""
-    user = users_collection.find_one({"_id": user_id})
+    user = users_collection.find_one({"_id": user_id, "is_active": True})
     if not user:
         return fail("User not found", 404)
     if not bcrypt.check_password_hash(user["password_hash"], current_password):

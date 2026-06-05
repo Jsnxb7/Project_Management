@@ -3,17 +3,154 @@
 {% block title %}Attendance | PeopleOps HRMS{% endblock %}
 
 {% block content %}
-<section class="page-head split">
+<section class="page-head split attendance-head">
     <div>
         <p class="eyebrow">Attendance</p>
-        <h1>Attendance Logs</h1>
-        <p class="muted">Check-ins, check-outs, working hours, late marks, absence records, and manager views.</p>
+        <h1>Attendance Command Center</h1>
+        <p class="muted">Clickable daily, weekly, and monthly calendar with live attendance widgets, leave workflow, manager reviews, corrections, meetings, and Super User controls.</p>
     </div>
-    <button class="btn" id="checkInBtn" type="button">Check In</button>
+    <div class="action-row">
+        <button class="btn" id="checkInBtn" type="button">Check In</button>
+        <button class="btn secondary" id="checkOutBtn" type="button">Check Out</button>
+    </div>
 </section>
 
-<section class="panel">
-    <div id="attendanceList" class="mini-list"></div>
+<section class="stat-grid attendance-stat-grid dynamic-attendance-widgets">
+    <article class="stat-card clickable-widget" data-widget="today"><span>Today</span><strong id="todayStatus">Loading</strong><small id="todayTimes">--</small></article>
+    <article class="stat-card"><span>Worked Today</span><strong id="todayWorked">0h</strong><small id="todayWorkedNote">Current recorded time</small></article>
+    <article class="stat-card"><span>Present This Month</span><strong id="presentCount">0</strong><small id="presentNote">Confirmed or normal present days</small></article>
+    <article class="stat-card"><span>Late / Overtime</span><strong id="lateOvertimeCount">0 / 0</strong><small>Late check-ins / overtime days</small></article>
+    <article class="stat-card"><span>Absent</span><strong id="absentCount">0</strong><small>Soft or confirmed absences</small></article>
+    <article class="stat-card"><span>Leaves</span><strong id="leaveCount">0</strong><small id="leaveNote">Approved + pending calendar leaves</small></article>
+    <article class="stat-card"><span>Pending Leaves</span><strong id="pendingLeaveCount">0</strong><small>Waiting for manager action</small></article>
+    <article class="stat-card"><span>Pending Reviews</span><strong id="pendingReviewCount">0</strong><small>Soft tags to confirm/excuse</small></article>
+</section>
+
+<section class="panel attendance-toolbar">
+    <div class="toolbar-left">
+        <button class="btn icon-btn secondary" id="prevMonthBtn" type="button" title="Previous period">‹</button>
+        <button class="btn icon-btn secondary" id="todayBtn" type="button">Today</button>
+        <button class="btn icon-btn secondary" id="nextMonthBtn" type="button" title="Next period">›</button>
+        <strong id="calendarRangeLabel">Calendar</strong>
+    </div>
+    <div class="toolbar-right wrap">
+        <select id="attendanceViewMode">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="daily">Daily</option>
+        </select>
+        <input id="attendanceMonth" type="month">
+        <select id="attendanceEmployeeSelect"><option value="">My / scoped calendar</option></select>
+        <button class="btn secondary" id="refreshAttendanceBtn" type="button">Refresh</button>
+    </div>
+</section>
+
+<section class="attendance-layout refined-attendance-layout">
+    <div class="panel calendar-panel">
+        <div class="section-title split">
+            <div>
+                <h2>Calendar</h2>
+                <p class="muted">Click any day to inspect logs, leaves, tags, corrections, and manager actions.</p>
+            </div>
+            <div class="legend-row">
+                <span class="legend present">Present</span>
+                <span class="legend late">Late</span>
+                <span class="legend overtime">Overtime</span>
+                <span class="legend absent">Absent</span>
+                <span class="legend leave">Leave</span>
+                <span class="legend neutral">No Log</span>
+            </div>
+        </div>
+        <div id="attendanceCalendar" class="attendance-calendar interactive-calendar" aria-live="polite"></div>
+    </div>
+
+    <aside class="panel side-panel attendance-detail-panel">
+        <div class="section-title split">
+            <div>
+                <h2 id="selectedDayTitle">Select a day</h2>
+                <p class="muted" id="selectedDaySubtitle">Calendar details will appear here.</p>
+            </div>
+        </div>
+        <div id="selectedDayDetails" class="selected-day-details empty-state">Click a calendar day to view attendance records, leave status, tags, and quick actions.</div>
+        <div class="selected-day-actions" id="selectedDayActions" hidden>
+            <button class="btn secondary" id="requestLeaveForSelectedBtn" type="button">Request Leave</button>
+            <button class="btn secondary" id="requestCorrectionForSelectedBtn" type="button">Request Correction</button>
+            <button class="btn secondary manager-action" id="scheduleMeetingForSelectedBtn" type="button" hidden>Schedule Meeting</button>
+        </div>
+
+        <hr class="soft-divider">
+
+        <h2>Request Leave</h2>
+        <form id="leaveRequestForm" class="stack-form">
+            <label>Leave Type<select name="leave_type"><option value="casual_leave">Casual Leave</option><option value="sick_leave">Sick Leave</option><option value="earned_leave">Earned Leave</option><option value="emergency_leave">Emergency Leave</option><option value="half_day">Half Day</option><option value="work_from_home">Work From Home</option><option value="unpaid_leave">Unpaid Leave</option></select></label>
+            <label>Start Date<input name="start_date" type="date" required></label>
+            <label>End Date<input name="end_date" type="date"></label>
+            <label>Reason<textarea name="reason" rows="3" placeholder="Reason for leave"></textarea></label>
+            <button class="btn" type="submit">Submit Leave Request</button>
+        </form>
+    </aside>
+</section>
+
+<section class="grid-two">
+    <div class="panel">
+        <div class="section-title split"><h2>My Leave Requests</h2><span class="muted" id="myLeaveSummary">--</span></div>
+        <div id="myLeaveList" class="mini-list"></div>
+    </div>
+    <div class="panel">
+        <div class="section-title split"><h2>Correction Requests</h2><span class="muted" id="correctionSummary">--</span></div>
+        <form id="correctionForm" class="stack-form compact-form">
+            <input name="date" type="date" required>
+            <input name="requested_check_in" type="datetime-local" placeholder="Requested check-in">
+            <input name="requested_check_out" type="datetime-local" placeholder="Requested check-out">
+            <input name="reason" placeholder="Reason">
+            <button class="btn secondary" type="submit">Request Correction</button>
+        </form>
+        <div id="correctionList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="grid-two manager-only" id="managerAttendancePanels" hidden>
+    <div class="panel">
+        <div class="section-title split"><h2>Team Attendance</h2><button class="btn secondary" id="repairManagersBtn" type="button">Repair Manager Mapping</button></div>
+        <div id="teamEmployeeList" class="mini-list"></div>
+    </div>
+    <div class="panel">
+        <div class="section-title split"><h2>Leave Approvals</h2><span class="muted" id="leaveApprovalSummary">--</span></div>
+        <div id="leaveApprovalList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="grid-two manager-only" id="reviewMeetingPanels" hidden>
+    <div class="panel">
+        <div class="section-title split"><h2>Abnormality Review</h2><span class="muted" id="reviewSummary">--</span></div>
+        <div id="attendanceReviewList" class="mini-list"></div>
+    </div>
+    <div class="panel">
+        <div class="section-title split"><h2>Attendance Meetings</h2><span class="muted" id="meetingSummary">--</span></div>
+        <form id="meetingForm" class="stack-form compact-form">
+            <select name="employee_id" id="meetingEmployeeSelect" required><option value="">Select employee</option></select>
+            <input name="meeting_date" type="date" required>
+            <input name="meeting_time" type="time" required>
+            <input name="reason" placeholder="Meeting reason">
+            <button class="btn secondary" type="submit">Schedule Meeting</button>
+        </form>
+        <div id="meetingList" class="mini-list"></div>
+    </div>
+</section>
+
+<section class="panel super-only" id="attendanceRulesPanel" hidden>
+    <div class="section-title split"><h2>Attendance Rules</h2><p class="muted">Super User configuration. These rules drive soft tags, absent marking, overtime, and calendar labels.</p></div>
+    <form id="rulesForm" class="rules-grid">
+        <label>Office Start<input name="start_time" type="time"></label>
+        <label>Late After<input name="late_after" type="time"></label>
+        <label>Office End<input name="end_time" type="time"></label>
+        <label>Full Day Minutes<input name="minimum_full_day_minutes" type="number"></label>
+        <label>Half Day Minutes<input name="minimum_half_day_minutes" type="number"></label>
+        <label>Overtime After Minutes<input name="overtime_after_minutes" type="number"></label>
+        <label>Working Days<input name="working_days" placeholder="mon,tue,wed,thu,fri"></label>
+        <label>Holidays<input name="holidays" placeholder="YYYY-MM-DD,YYYY-MM-DD"></label>
+        <button class="btn" type="submit">Save Rules</button>
+    </form>
 </section>
 {% endblock %}
 

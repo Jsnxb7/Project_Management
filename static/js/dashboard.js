@@ -63,6 +63,7 @@ function renderRoleWorkspace(data) {
             miniItem("Team Members", data.team.members ?? 0),
             miniItem("Team Attendance Logs", data.team.attendance_logs ?? 0),
             miniItem("Leave Approvals", data.team.leave_approvals ?? 0),
+            miniItem("Pending Attendance Reviews", data.attendance?.pending_reviews ?? 0),
             miniItem("Reviews Pending", data.team.reviews_pending ?? 0),
         ].join("");
         return;
@@ -71,6 +72,7 @@ function renderRoleWorkspace(data) {
         title.textContent = "Employee Self-Service";
         body.innerHTML = [
             miniItem("Attendance Logs", data.self.attendance_logs ?? 0),
+            miniItem("Today Present/Late", `${data.attendance?.present ?? 0}/${data.attendance?.late ?? 0}`),
             miniItem("Payslips", data.self.payslips ?? 0),
             miniItem("Performance Reviews", data.self.reviews ?? 0),
             miniItem("Leave Requests", data.self.leave_requests ?? 0),
@@ -112,9 +114,12 @@ async function loadHrmsDashboard() {
     setText("presentLogs", d.attendance?.present ?? 0);
     setText("lateLogs", d.attendance?.late ?? 0);
     setText("absentLogs", d.attendance?.absent ?? 0);
+    setText("overtimeLogs", d.attendance?.overtime ?? 0);
+    setText("attendanceReviewsPending", d.attendance?.pending_reviews ?? d.company?.attendance_reviews_pending ?? 0);
     setText("totalEmployees", d.company?.total_employees ?? d.employee_scope_count ?? 0);
     setText("payrollPending", d.company?.payroll_pending ?? 0);
     setText("leavePending", d.company?.leave_pending ?? d.open_leave_requests ?? 0);
+    setText("managerMissing", d.company?.manager_missing ?? 0);
     renderPermissions(d.permissions);
     renderCompany(d.company);
     renderRoleWorkspace(d);

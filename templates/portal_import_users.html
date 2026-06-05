@@ -7,23 +7,23 @@
     <div>
         <p class="eyebrow">HRMS Administration</p>
         <h1>Bulk Import Users</h1>
-        <p class="muted">Upload a CSV with name, email, password, hrms_role, employee_code, department, designation, and phone.</p>
+        <p class="muted">Upload a CSV or JSON file with name, email, password, hrms_role, employee_code, department, designation, and phone.</p>
     </div>
     <a class="btn small secondary" href="/portal/users">Back to User Management</a>
 </section>
 
 <section class="details-grid">
     <div class="panel">
-        <h2>Analyze CSV</h2>
+        <h2>Analyze Import File</h2>
         <form id="bulkImportForm" class="advanced-form" enctype="multipart/form-data">
-            <label>User CSV</label>
-            <input id="bulkUserFile" type="file" accept=".csv" required>
+            <label>User CSV or JSON</label>
+            <input id="bulkUserFile" type="file" accept=".csv,.json,application/json,text/csv" required>
             <button class="btn" type="submit">Analyze File</button>
         </form>
         <p id="bulkImportMessage" class="message"></p>
     </div>
     <div class="panel">
-        <h2>Expected Columns</h2>
+        <h2>Expected Fields</h2>
         <div class="role-stack">
             <span class="role-pill">name</span>
             <span class="role-pill">email</span>
@@ -32,7 +32,7 @@
             <span class="role-pill">department</span>
             <span class="role-pill">designation</span>
         </div>
-        <p class="muted">Invalid rows are shown before commit. Existing emails are skipped during import.</p>
+        <p class="muted">JSON can be an array of users, or an object with users, rows, or data. Existing emails are skipped during import.</p>
     </div>
 </section>
 
@@ -40,7 +40,7 @@
     <div class="split compact">
         <div>
             <h2>Import Review</h2>
-            <p class="muted" id="importSummary">Analyze a CSV to review row validity.</p>
+            <p class="muted" id="importSummary">Analyze a CSV or JSON file to review row validity.</p>
         </div>
         <button id="commitRowsBtn" class="btn small" type="button" disabled>Import Valid Rows</button>
     </div>

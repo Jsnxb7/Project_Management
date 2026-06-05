@@ -37,7 +37,7 @@ def now():
 
 def current_user():
     user_id = to_object_id(get_jwt_identity())
-    return users_collection.find_one({"_id": user_id}) if user_id else None
+    return users_collection.find_one({"_id": user_id, "is_active": True}) if user_id else None
 
 
 def require_perm(name):
@@ -504,7 +504,7 @@ def recruitment_user_options():
     if error:
         return error
     roles = ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"]
-    rows = users_collection.find({"$or": [{"hrms_role": {"$in": roles}}, {"portal_role": {"$in": roles}}, {"role": {"$in": roles}}]}, {"name": 1, "email": 1, "hrms_role": 1, "portal_role": 1, "role": 1}).sort("name", 1).limit(500)
+    rows = users_collection.find({"is_active": True, "$or": [{"hrms_role": {"$in": roles}}, {"portal_role": {"$in": roles}}, {"role": {"$in": roles}}]}, {"name": 1, "email": 1, "hrms_role": 1, "portal_role": 1, "role": 1}).sort("name", 1).limit(500)
     return ok("Recruitment users fetched", {"users": [{"id": str(r["_id"]), "name": r.get("name") or r.get("email") or "User", "email": r.get("email"), "role": user_role(r)} for r in rows]})
 
 

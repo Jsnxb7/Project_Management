@@ -123,7 +123,7 @@ def logout():
 @jwt_required()
 def me():
     user_id = get_jwt_identity()
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    user = users_collection.find_one({"_id": ObjectId(user_id), "is_active": True})
     if not user:
         return fail("User not found", 404)
     return ok("Profile fetched", {"user": user_public(user)})

@@ -8,32 +8,36 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 
 from config import Config
+from services.page_access import can_access_page, default_page_for_role
 
 
 bcrypt = Bcrypt()
 jwt = JWTManager()
 
 
-def protected_page(view):
-    @wraps(view)
-    def wrapper(*args, **kwargs):
-        if not session.get("user_id"):
-            return redirect(url_for("login_page"))
+def protected_page(view=None, *, path=None):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(*args, **kwargs):
+            if not session.get("user_id"):
+                return redirect(url_for("login_page"))
 
-        # Candidate users are intentionally cut off from the internal HRMS.
-        # They can only view their process tracker and assigned interview rooms.
-        role = session.get("hrms_role") or session.get("portal_role")
-        candidate_allowed = request.path.startswith(("/candidate-process", "/interview-room"))
-        if role == "Candidate" and not candidate_allowed:
-            return redirect(url_for("candidate_process_page"))
+            role = session.get("hrms_role") or session.get("portal_role") or session.get("role")
+            requested_path = path or request.path
+            if not can_access_page(role, requested_path):
+                return redirect(url_for(default_page_for_role(role)))
 
-        response = make_response(view(*args, **kwargs))
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+            response = make_response(view_func(*args, **kwargs))
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
 
-    return wrapper
+        return wrapper
+
+    if view is None:
+        return decorator
+    return decorator(view)
 
 
 def create_app():
@@ -92,6 +96,7 @@ def create_app():
         protected_prefixes = (
             "/dashboard",
             "/notifications",
+            "/messages",
             "/profile",
             "/portal",
             "/employees",
@@ -201,6 +206,11 @@ def create_app():
     @protected_page
     def notifications_page():
         return render_template("notifications.html")
+
+    @app.route("/messages")
+    @protected_page
+    def messages_page():
+        return render_template("messages.html")
 
     @app.route("/profile")
     @protected_page

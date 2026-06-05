@@ -13,45 +13,7 @@ from database.db import (
     applications_collection,
     resume_screening_collection,
 )
-
-
-HRMS_ROLES = [
-    "Super User",
-    "Management Admin",
-    "HR Director",
-    "HR Manager",
-    "HR Business Partner",
-    "HR Recruiter",
-    "Talent Acquisition Specialist",
-    "Technical Interviewer",
-    "Panel Interviewer",
-    "Payroll Manager",
-    "Compensation and Benefits Specialist",
-    "Learning and Development Manager",
-    "Employee Relations Manager",
-    "HR Operations Specialist",
-    "Senior Manager",
-    "Employee",
-    "Candidate",
-]
-HR_POSITION_FAMILIES = {
-    "HR Leadership": ["HR Director", "HR Manager", "HR Business Partner"],
-    "Talent Acquisition": ["HR Recruiter", "Talent Acquisition Specialist"],
-    "Payroll and Rewards": ["Payroll Manager", "Compensation and Benefits Specialist"],
-    "People Development": ["Learning and Development Manager"],
-    "Employee Support": ["Employee Relations Manager", "HR Operations Specialist"],
-    "Business Management": ["Management Admin", "Senior Manager"],
-    "Interview Panel": ["Technical Interviewer", "Panel Interviewer"],
-    "Self Service": ["Employee"],
-    "Candidate Portal": ["Candidate"],
-}
-ROLE_ALIASES = {
-    "Root": "Super User",
-    "Admin": "Management Admin",
-    "Org Head": "Senior Manager",
-    "Team Lead": "Senior Manager",
-    "Member": "Employee",
-}
+from services.role_access import HRMS_ROLES, HR_POSITION_FAMILIES, normalize_role, role_permissions, user_role
 
 
 def to_object_id(value):
@@ -61,50 +23,6 @@ def to_object_id(value):
         return ObjectId(value)
     except Exception:
         return None
-
-
-def normalize_role(role):
-    role = role or "Employee"
-    return ROLE_ALIASES.get(role, role if role in HRMS_ROLES else "Employee")
-
-
-def user_role(user):
-    return normalize_role(user.get("hrms_role") or user.get("portal_role") or user.get("role")) if user else "Employee"
-
-
-def role_permissions(role):
-    role = normalize_role(role)
-    candidate = role == "Candidate"
-    super_user = role == "Super User"
-    hr_leadership = super_user or role in ["Management Admin", "HR Director", "HR Manager", "HR Business Partner"]
-    recruiter = hr_leadership or role in ["HR Recruiter", "Talent Acquisition Specialist"]
-    interviewer = recruiter or role in ["Technical Interviewer", "Panel Interviewer", "Senior Manager"]
-    payroll = super_user or role in ["Management Admin", "HR Director", "HR Manager", "Payroll Manager", "Compensation and Benefits Specialist"]
-    people_dev = super_user or role in ["Management Admin", "HR Director", "HR Manager", "Learning and Development Manager"]
-    employee_relations = super_user or role in ["Management Admin", "HR Director", "HR Manager", "Employee Relations Manager", "HR Operations Specialist"]
-    team_manager = super_user or role in ["Management Admin", "HR Director", "HR Manager", "Senior Manager"]
-    return {
-        "is_super_user": super_user,
-        "can_manage_users": super_user or hr_leadership,
-        "can_manage_employees": hr_leadership or role == "HR Operations Specialist",
-        "can_view_company_dashboard": super_user or hr_leadership,
-        "can_view_recruitment": recruiter or interviewer,
-        "can_view_candidate_process": candidate,
-        "can_manage_recruitment": recruiter,
-        "can_ai_screen_resumes": recruiter,
-        "can_run_voice_interviews": interviewer,
-        "can_assign_interviewers": recruiter,
-        "can_review_recruitment": recruiter or interviewer,
-        "can_view_team_dashboard": team_manager,
-        "can_manage_payroll": payroll,
-        "can_view_payroll": payroll,
-        "can_review_performance": people_dev or team_manager,
-        "can_manage_learning": people_dev,
-        "can_manage_employee_relations": employee_relations,
-        "can_manage_leave": employee_relations or team_manager,
-        "can_view_self_service": not candidate,
-        "can_customize_theme": True,
-    }
 
 
 def current_employee_for_user(user_id):
@@ -121,6 +39,7 @@ def serialize_dt(value):
 def serialize_employee(employee):
     if not employee:
         return None
+    manager = users_collection.find_one({"_id": employee.get("manager_id")}) if employee.get("manager_id") else None
     return {
         "id": str(employee["_id"]),
         "user_id": str(employee.get("user_id")) if employee.get("user_id") else None,
@@ -133,6 +52,8 @@ def serialize_employee(employee):
         "joining_date": serialize_dt(employee.get("joining_date")),
         "employment_status": employee.get("employment_status", "Active"),
         "manager_id": str(employee.get("manager_id")) if employee.get("manager_id") else None,
+        "manager_name": manager.get("name") or manager.get("email") if manager else None,
+        "manager_status": employee.get("manager_status", "missing" if not employee.get("manager_id") else "assigned"),
         "documents": employee.get("documents", []),
         "salary": employee.get("salary", {}),
         "work_history": employee.get("work_history", []),
@@ -148,27 +69,45 @@ def manager_employee_ids(manager_user_id):
 
 def scoped_employee_query(user):
     role = user_role(user)
-    if role_permissions(role).get("can_view_company_dashboard") or role_permissions(role).get("can_manage_employees"):
+    permissions = role_permissions(role)
+    if permissions.get("can_view_company_dashboard") or permissions.get("can_manage_employees"):
         return {}
+
+    own = current_employee_for_user(user["_id"])
+    if not own:
+        return {"_id": None}
+
     if role == "Senior Manager":
         ids = manager_employee_ids(user["_id"])
-        own = current_employee_for_user(user["_id"])
-        if own:
-            ids.append(own["_id"])
-        return {"_id": {"$in": ids}}
-    own = current_employee_for_user(user["_id"])
-    return {"_id": own["_id"]} if own else {"_id": None}
+        ids.append(own["_id"])
+        department = own.get("department")
+        team_query = {"_id": {"$in": ids}}
+        if department:
+            return {"$or": [team_query, {"department": department}]}
+        return team_query
+
+    scoped_or = [{"_id": own["_id"]}]
+    if own.get("department"):
+        scoped_or.append({"department": own.get("department")})
+    if own.get("manager_id"):
+        scoped_or.append({"manager_id": own.get("manager_id")})
+    return {"$or": scoped_or}
 
 
 def attendance_summary(employee_query):
+    today_key = datetime.now(timezone.utc).date().isoformat()
     employee_ids = [e["_id"] for e in employees_collection.find(employee_query, {"_id": 1})]
     if not employee_ids:
-        return {"present": 0, "late": 0, "absent": 0, "total_logs": 0}
+        return {"present": 0, "late": 0, "absent": 0, "overtime": 0, "leave": 0, "pending_reviews": 0, "total_logs": 0}
     base = {"employee_id": {"$in": employee_ids}}
+    today = {**base, "date_key": today_key}
     return {
-        "present": attendance_collection.count_documents({**base, "status": "Present"}),
-        "late": attendance_collection.count_documents({**base, "late_mark": True}),
-        "absent": attendance_collection.count_documents({**base, "status": "Absent"}),
+        "present": attendance_collection.count_documents({**today, "status": {"$in": ["present", "checked_in", "Present"]}}),
+        "late": attendance_collection.count_documents({**today, "$or": [{"soft_tags": "late_checkin"}, {"late_mark": True}]}),
+        "absent": attendance_collection.count_documents({**today, "status": {"$in": ["absent", "Absent"]}}),
+        "overtime": attendance_collection.count_documents({**today, "soft_tags": "overtime"}),
+        "leave": attendance_collection.count_documents({**today, "status": "leave"}),
+        "pending_reviews": attendance_collection.count_documents({**base, "manager_status": {"$in": ["pending_review", "review_required"]}}),
         "total_logs": attendance_collection.count_documents(base),
     }
 
@@ -222,7 +161,9 @@ def company_dashboard():
             "departments": [{"name": row.get("_id") or "Unassigned", "count": row["count"]} for row in departments],
             "payroll_pending": payroll_collection.count_documents({"status": {"$in": ["Draft", "Pending Approval"]}}),
             "payroll_approved": payroll_collection.count_documents({"status": "Approved"}),
-            "leave_pending": leave_requests_collection.count_documents({"status": "Pending"}),
+            "leave_pending": leave_requests_collection.count_documents({"status": {"$in": ["Pending", "pending"]}}),
+            "manager_missing": employees_collection.count_documents({"employment_status": {"$ne": "Inactive"}, "$or": [{"manager_id": None}, {"manager_status": "missing"}]}),
+            "attendance_reviews_pending": attendance_collection.count_documents({"manager_status": {"$in": ["pending_review", "review_required"]}}),
             "recruitment_pipeline": [{"status": row.get("_id") or "New", "count": row["count"]} for row in pipeline],
             "performance_reviews": performance_reviews_collection.count_documents({}),
         }

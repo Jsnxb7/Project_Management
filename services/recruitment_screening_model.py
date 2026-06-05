@@ -72,7 +72,7 @@ STOPWORDS = {
 SKILL_HINTS = {
     "python", "flask", "django", "fastapi", "java", "spring", "node", "express", "react",
     "angular", "vue", "javascript", "typescript", "html", "css", "tailwind", "bootstrap",
-    "mongodb", "mongo", "postgresql", "mysql", "sql", "redis", "celery", "rabbitmq",
+    "mongodb", "mongo", "nosql", "document database", "document db", "postgresql", "mysql", "sql", "redis", "celery", "rabbitmq",
     "docker", "kubernetes", "aws", "azure", "gcp", "linux", "nginx", "gunicorn", "git",
     "github", "gitlab", "rest", "api", "apis", "graphql", "microservices", "oauth", "jwt",
     "machine learning", "deep learning", "nlp", "ai", "rag", "llm", "transformers", "rest api", "rest apis",
@@ -188,22 +188,118 @@ class RecruitmentScreeningModel:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
+    def _alias_pattern(self, term: str) -> str:
+        """Build a tolerant regex for technical terms.
+
+        This treats spaces, hyphens, underscores and slashes as equivalent, so
+        values such as ``MongoDB/NoSQL``, ``mongo db``, ``MongoDB Atlas`` and
+        ``non-relational database`` can be matched reliably.
+        """
+        escaped = re.escape(str(term or "").strip())
+        escaped = escaped.replace(r"\ ", r"[\s\-_/]+")
+        escaped = escaped.replace(r"\-", r"[\s\-_/]+")
+        escaped = escaped.replace(r"_", r"[\s\-_/]+")
+        escaped = escaped.replace(r"/", r"[\s\-_/]+")
+        return escaped
+
+    def _split_keyword_terms(self, value: str) -> List[str]:
+        """Split recruiter-entered composite keywords into screenable terms.
+
+        Recruiters commonly type skills as ``MongoDB/NoSQL`` or
+        ``Flask, Django / FastAPI``. Earlier versions treated the whole string as
+        one exact keyword, which caused false misses. This function expands the
+        composite value while preserving meaningful multi-word skills.
+        """
+        value = str(value or "").strip().lower()
+        if not value:
+            return []
+
+        normalized = re.sub(r"[|;]+", ",", value)
+        pieces = []
+        for chunk in re.split(r",|\n", normalized):
+            chunk = chunk.strip(" -•*\t")
+            if not chunk:
+                continue
+            # Split slash-separated skill packs, but keep URL-like text out of JD keywords.
+            if "/" in chunk and not re.search(r"https?://", chunk):
+                pieces.extend(part.strip() for part in re.split(r"/+", chunk) if part.strip())
+            else:
+                pieces.append(chunk)
+        return [p for p in pieces if p]
+
+    def canonical_skill(self, term: str) -> str:
+        """Return the canonical skill family for a term when known."""
+        target = str(term or "").lower().strip()
+        target = re.sub(r"\s+", " ", target)
+        for canonical, aliases in SKILL_ALIASES.items():
+            all_terms = {canonical, *aliases}
+            for item in all_terms:
+                pattern = r"^" + self._alias_pattern(item) + r"$"
+                if re.match(pattern, target, flags=re.IGNORECASE):
+                    return canonical
+        return target
+
+    def expand_keywords(self, keywords: Sequence[str] | str | None) -> List[str]:
+        """Normalize recruiter/JD keywords into canonical, alias-aware entries."""
+        if not keywords:
+            return []
+        if isinstance(keywords, str):
+            raw_items = self._split_keyword_terms(keywords)
+        else:
+            raw_items = []
+            for item in keywords:
+                raw_items.extend(self._split_keyword_terms(str(item)))
+
+        expanded: List[str] = []
+        seen = set()
+        for item in raw_items:
+            canonical = self.canonical_skill(item)
+            for candidate in (canonical, item):
+                candidate = str(candidate or "").lower().strip()
+                if candidate and candidate not in seen:
+                    seen.add(candidate)
+                    expanded.append(candidate)
+        return expanded
+
     def canonicalize_text(self, text: str) -> str:
         """Normalize technical aliases so semantic/keyword checks handle variants.
 
         Example: MongoDB, Mongo DB, NoSQL, document database, and MongoDB Atlas
         all reinforce the same family instead of being treated as unrelated words.
+        Replacements are done with placeholders first so broad aliases like
+        ``api`` do not repeatedly rewrite text that has already been normalized.
         """
-        text = text or ""
-        normalized = text
+        original = text or ""
+        normalized = original
+        placeholders: Dict[str, str] = {}
+        index = 0
+
+        all_aliases: List[Tuple[str, str]] = []
         for canonical, aliases in SKILL_ALIASES.items():
-            terms = sorted(set([canonical, *aliases]), key=len, reverse=True)
-            for term in terms:
-                pattern = r"(?<![A-Za-z0-9])" + re.escape(term).replace(r"\ ", r"[\s\-_/]+") + r"(?![A-Za-z0-9])"
-                normalized = re.sub(pattern, f" {canonical} ", normalized, flags=re.IGNORECASE)
+            for term in set([canonical, *aliases]):
+                all_aliases.append((term, canonical))
+        all_aliases.sort(key=lambda item: len(item[0]), reverse=True)
+
+        for term, canonical in all_aliases:
+            pattern = r"(?<![A-Za-z0-9])" + self._alias_pattern(term) + r"(?![A-Za-z0-9])"
+
+            def repl(_match, canonical=canonical):
+                nonlocal index
+                key = f" __SKILL_ALIAS_{index}__ "
+                placeholders[key.strip()] = canonical
+                index += 1
+                return key
+
+            normalized = re.sub(pattern, repl, normalized, flags=re.IGNORECASE)
+
+        for placeholder, canonical in placeholders.items():
+            normalized = normalized.replace(placeholder, canonical)
         return normalized
 
     def tokenize(self, text: str) -> List[str]:
+        # Add spaces around slashes before canonicalization so MongoDB/NoSQL is
+        # considered as two related skills rather than one unknown token.
+        text = re.sub(r"(?<=[A-Za-z0-9])/(?=[A-Za-z0-9])", " / ", text or "")
         text = self.canonicalize_text(text)
         raw = re.findall(r"[A-Za-z][A-Za-z0-9+#.\-]{1,}", text or "")
         return [t.lower().strip(".-") for t in raw if t.strip(".-")]
@@ -401,11 +497,18 @@ class RecruitmentScreeningModel:
             boosted[token] += score
 
         text_lower = text.lower()
+        canonical_lower = self.canonicalize_text(text).lower()
 
-        # Known multi-word skills get direct boosts.
+        # Known skills and aliases get direct boosts. This is important for terms
+        # such as MongoDB/NoSQL where the recruiter and resume may use different
+        # but equivalent phrasing.
         for skill in SKILL_HINTS:
-            if " " in skill and skill in text_lower:
-                boosted[skill] += 6.0
+            if self._term_in_text(skill, canonical_lower + " " + text_lower):
+                boosted[self.canonical_skill(skill)] += 6.0 if " " in skill else 4.0
+
+        for canonical, aliases in SKILL_ALIASES.items():
+            if any(self._term_in_text(term, canonical_lower + " " + text_lower) for term in [canonical, *aliases]):
+                boosted[canonical] += 7.0
 
         # Capitalized phrases, e.g. MongoDB Atlas, REST API, Human Resource Management.
         for phrase in re.findall(r"\b[A-Z][A-Za-z+#.]+(?:\s+[A-Z][A-Za-z+#.]+){0,3}\b", text):
@@ -426,7 +529,7 @@ class RecruitmentScreeningModel:
         for n in (2, 3):
             for i in range(0, max(0, len(filtered) - n + 1)):
                 phrase = " ".join(filtered[i : i + n])
-                if phrase in SKILL_HINTS or phrase.endswith(" api") or phrase.endswith(" apis"):
+                if phrase in SKILL_HINTS or (n == 2 and (phrase.endswith(" api") or phrase.endswith(" apis"))):
                     boosted[phrase] += 2.5
 
         keywords: List[str] = []
@@ -439,7 +542,7 @@ class RecruitmentScreeningModel:
             parts = cleaned.split()
             if len(parts) > 4 or any(part in STOPWORDS for part in parts):
                 continue
-            if len(parts) > 1 and cleaned not in SKILL_HINTS and not cleaned.endswith(" api") and not cleaned.endswith(" apis"):
+            if len(parts) > 1 and cleaned not in SKILL_HINTS and not (len(parts) == 2 and (cleaned.endswith(" api") or cleaned.endswith(" apis"))):
                 continue
             seen.add(cleaned)
             keywords.append(cleaned)
@@ -505,16 +608,27 @@ class RecruitmentScreeningModel:
     # Explainability helpers
     # -----------------------------
     def keyword_variants(self, keyword: str) -> List[str]:
-        target = str(keyword or "").lower().strip()
-        variants = {target}
-        if target in SKILL_ALIASES:
-            variants.update(SKILL_ALIASES[target])
-        for canonical, aliases in SKILL_ALIASES.items():
-            if target == canonical or target in aliases:
-                variants.add(canonical)
-                variants.update(aliases)
+        targets = self.expand_keywords([keyword]) or [str(keyword or "").lower().strip()]
+        variants = set()
+        for target in targets:
+            target = str(target or "").lower().strip()
+            if not target:
+                continue
+            variants.add(target)
+            canonical = self.canonical_skill(target)
+            variants.add(canonical)
+            if canonical in SKILL_ALIASES:
+                variants.update(SKILL_ALIASES[canonical])
+            for known_canonical, aliases in SKILL_ALIASES.items():
+                if target == known_canonical or target in aliases or canonical == known_canonical:
+                    variants.add(known_canonical)
+                    variants.update(aliases)
+
         expanded = set()
         for item in variants:
+            item = str(item or "").strip()
+            if not item:
+                continue
             if item.endswith("s") and len(item) > 3:
                 expanded.add(item[:-1])
             else:
@@ -525,18 +639,17 @@ class RecruitmentScreeningModel:
     def _term_in_text(self, term: str, text_lower: str) -> bool:
         if not term:
             return False
-        pattern = re.escape(term).replace(r"\ ", r"[\s\-_/]+")
-        if " " in term or any(ch in term for ch in "+#."):
-            return bool(re.search(pattern, text_lower, flags=re.IGNORECASE))
-        return bool(re.search(rf"\b{pattern}\b", text_lower, flags=re.IGNORECASE))
+        pattern = self._alias_pattern(term)
+        return bool(re.search(rf"(?<![A-Za-z0-9]){pattern}(?![A-Za-z0-9])", text_lower, flags=re.IGNORECASE))
 
     def keyword_match(self, jd_keywords: Sequence[str], resume_text: str) -> Tuple[List[str], List[str], float]:
         resume_lower = self.canonicalize_text(resume_text or "").lower() + " " + (resume_text or "").lower()
         matched: List[str] = []
         missing: List[str] = []
         seen = set()
-        for kw in jd_keywords or []:
-            target = str(kw).lower().strip()
+        normalized_keywords = self.expand_keywords(jd_keywords)
+        for kw in normalized_keywords or []:
+            target = self.canonical_skill(str(kw).lower().strip())
             if not target or target in seen:
                 continue
             seen.add(target)
@@ -574,7 +687,12 @@ class RecruitmentScreeningModel:
             term = str(kw).strip().lower()
             if not term:
                 continue
-            match = re.search(re.escape(term), lowered)
+            match = None
+            for variant in self.keyword_variants(term):
+                pattern = self._alias_pattern(variant)
+                match = re.search(pattern, lowered, flags=re.IGNORECASE)
+                if match:
+                    break
             if not match:
                 continue
             start, end = match.span()
@@ -583,13 +701,19 @@ class RecruitmentScreeningModel:
             used_ranges.append((start, end))
             left = max(0, start - window)
             right = min(len(raw), end + window)
-            snippet = html.escape(raw[left:right].strip())
-            highlighted = re.sub(
-                re.escape(html.escape(raw[start:end])),
-                lambda m: f"<mark>{m.group(0)}</mark>",
-                snippet,
-                flags=re.IGNORECASE,
+            snippet_raw = raw[left:right].strip()
+            # Highlight the exact matched surface text, even if it was an alias
+            # such as NoSQL for the canonical MongoDB keyword.
+            rel_start = max(0, start - left)
+            rel_end = max(rel_start, end - left)
+            highlighted_raw = (
+                snippet_raw[:rel_start]
+                + "[[MARK]]"
+                + snippet_raw[rel_start:rel_end]
+                + "[[/MARK]]"
+                + snippet_raw[rel_end:]
             )
+            highlighted = html.escape(highlighted_raw).replace("[[MARK]]", "<mark>").replace("[[/MARK]]", "</mark>")
             snippets.append({"keyword": term, "snippet_html": highlighted})
             if len(snippets) >= max_snippets:
                 break
@@ -730,12 +854,12 @@ class RecruitmentScreeningModel:
         # Blend manual JD keywords + extracted JD keywords so a recruiter can type
         # MongoDB/NoSQL and still match Mongo DB, document DB, or MongoDB Atlas in
         # a resume. Canonical aliases are included for explainable matching.
-        base_keywords = list(jd_keywords) if jd_keywords else []
+        base_keywords = self.expand_keywords(jd_keywords)
         extracted_keywords = self.extract_keywords(jd_text)
         keywords = []
         seen = set()
-        for kw in [*base_keywords, *extracted_keywords]:
-            target = str(kw).lower().strip()
+        for kw in [*base_keywords, *self.expand_keywords(extracted_keywords)]:
+            target = self.canonical_skill(str(kw).lower().strip())
             if not target or target in seen:
                 continue
             seen.add(target)
@@ -817,7 +941,7 @@ class RecruitmentScreeningModel:
         min_score: Optional[float] = None,
         shortlisted_only: bool = True,
     ) -> Dict[str, Any]:
-        keywords = list(jd_keywords) if jd_keywords else self.extract_keywords(jd_text)
+        keywords = self.expand_keywords(jd_keywords) if jd_keywords else self.extract_keywords(jd_text)
         rows: List[Dict[str, Any]] = []
         for item in applicants:
             if isinstance(item, ApplicantInput):

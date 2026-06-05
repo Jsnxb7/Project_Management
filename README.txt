@@ -979,3 +979,9 @@ config.py
 
 
 If the project fails with ModuleNotFoundError: No module named 'config', create config.py by copying config.example.py.
+
+Latest Screening Fix: Alias-Aware Database Skill Matching
+
+The recruitment screening model now expands composite and synonym skill entries before scoring. This fixes cases where a JD says MongoDB, NoSQL, or MongoDB/NoSQL, while the resume uses another related phrase such as MongoDB Atlas, Mongo DB, document database, or non-relational database.
+
+The model uses the normalized skill family for keyword scoring, matched evidence, and the lightweight cosine-style vector scorer. The default implementation is still offline-friendly; a real Sentence Transformer backend can be enabled later for deeper semantic matching.

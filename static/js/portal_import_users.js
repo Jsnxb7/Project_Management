@@ -44,7 +44,7 @@ function renderRows(rows) {
 bulkImportForm?.addEventListener("submit", async event => {
     event.preventDefault();
     const file = document.getElementById("bulkUserFile").files[0];
-    if (!file) return showImportMessage("Choose a CSV file first.");
+    if (!file) return showImportMessage("Choose a CSV or JSON file first.");
     const form = new FormData();
     form.append("file", file);
     const res = await fetch("/api/portal/import/preview", {method: "POST", headers: authHeaders(false), body: form});

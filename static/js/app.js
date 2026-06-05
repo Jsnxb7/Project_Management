@@ -1,5 +1,24 @@
 function getToken() { return localStorage.getItem("token"); }
 
+const PAGE_PATHS = [
+    "/dashboard",
+    "/employees",
+    "/attendance",
+    "/payroll",
+    "/performance",
+    "/recruitment",
+    "/applications",
+    "/voice-interview",
+    "/interviews",
+    "/candidate-process",
+    "/themes",
+    "/notifications",
+    "/messages",
+    "/profile",
+    "/portal/users",
+    "/portal/import-users"
+];
+
 function authHeaders(json = true) {
     const headers = {"Authorization": `Bearer ${getToken() || ""}`};
     if (json) headers["Content-Type"] = "application/json";
@@ -53,13 +72,68 @@ function roleHas(role, group) {
     const map = {
         super: ["Super User"],
         admin: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner"],
-        people: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner", "HR Operations Specialist", "Employee Relations Manager", "Senior Manager"],
+        people: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner", "HR Operations Specialist", "Employee Relations Manager", "Senior Manager", "Payroll Manager", "Compensation and Benefits Specialist", "Learning and Development Manager", "Employee"],
         payroll: ["Super User", "Management Admin", "HR Director", "HR Manager", "Payroll Manager", "Compensation and Benefits Specialist"],
         recruitment: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"],
         interviewer: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"],
         candidate: ["Candidate"]
     };
     return (map[group] || []).includes(role);
+}
+
+function permissionsForRole(role) {
+    const isSuper = role === "Super User";
+    const hrLeadership = isSuper || ["Management Admin", "HR Director", "HR Manager", "HR Business Partner"].includes(role);
+    const recruiter = hrLeadership || ["HR Recruiter", "Talent Acquisition Specialist"].includes(role);
+    const interviewer = recruiter || ["Technical Interviewer", "Panel Interviewer", "Senior Manager"].includes(role);
+    const payroll = isSuper || ["Management Admin", "HR Director", "HR Manager", "Payroll Manager", "Compensation and Benefits Specialist"].includes(role);
+    const peopleDev = isSuper || ["Management Admin", "HR Director", "HR Manager", "Learning and Development Manager"].includes(role);
+    const teamManager = isSuper || ["Management Admin", "HR Director", "HR Manager", "Senior Manager"].includes(role);
+    return {
+        is_super_user: isSuper,
+        can_manage_users: isSuper || hrLeadership,
+        can_manage_employees: hrLeadership || role === "HR Operations Specialist",
+        can_view_recruitment: recruiter || interviewer,
+        can_view_candidate_process: role === "Candidate",
+        can_run_voice_interviews: interviewer,
+        can_view_team_dashboard: teamManager,
+        can_view_payroll: payroll || role !== "Candidate",
+        can_view_employees: role !== "Candidate",
+        can_message_employees: role !== "Candidate",
+        can_review_performance: peopleDev || teamManager,
+        can_view_self_service: role !== "Candidate",
+        can_customize_theme: true
+    };
+}
+
+function canAccessPath(role, path) {
+    const p = permissionsForRole(role);
+    const rules = {
+        "/dashboard": () => p.can_view_self_service,
+        "/employees": () => p.can_view_employees,
+        "/attendance": () => p.can_view_self_service,
+        "/payroll": () => p.can_view_payroll,
+        "/performance": () => p.can_review_performance || p.can_view_self_service,
+        "/recruitment": () => p.can_view_recruitment,
+        "/applications": () => p.can_view_recruitment,
+        "/voice-interview": () => p.can_run_voice_interviews,
+        "/interviews": () => p.can_run_voice_interviews,
+        "/candidate-process": () => p.can_view_candidate_process || p.is_super_user,
+        "/themes": () => p.can_customize_theme && p.can_view_self_service,
+        "/notifications": () => p.can_view_self_service,
+        "/messages": () => p.can_message_employees,
+        "/profile": () => p.can_view_self_service,
+        "/portal/users": () => p.can_manage_users,
+        "/portal/import-users": () => p.is_super_user
+    };
+    const exact = rules[path];
+    return Boolean(exact && exact());
+}
+
+function defaultPathForRole(role) {
+    if (canAccessPath(role, "/dashboard")) return "/dashboard";
+    if (canAccessPath(role, "/candidate-process")) return "/candidate-process";
+    return "/";
 }
 
 function applyTheme(theme) {
@@ -107,6 +181,7 @@ function setShellVisibility() {
     };
     const isCandidate = !!token && roleHas(role, "candidate");
     setVisible("[data-auth-link]", !!token && !isCandidate);
+    setVisible("[data-session-link]", !!token);
     setVisible("[data-guest-link]", !token);
     setVisible("[data-candidate-link]", isCandidate);
     setVisible("[data-super-link]", !!token && !isCandidate && roleHas(role, "super"));
@@ -115,6 +190,18 @@ function setShellVisibility() {
     setVisible("[data-hr-lead-link]", !!token && !isCandidate && roleHas(role, "payroll"));
     setVisible("[data-recruitment-link]", !!token && !isCandidate && roleHas(role, "recruitment"));
     setVisible("[data-interview-link]", !!token && !isCandidate && roleHas(role, "interviewer"));
+
+    document.querySelectorAll(".nav-links a[href^='/']").forEach(link => {
+        const href = link.getAttribute("href");
+        if (!PAGE_PATHS.includes(href)) return;
+        link.style.display = token && canAccessPath(role, href) ? "" : "none";
+    });
+    document.querySelectorAll(".nav-group").forEach(group => {
+        const protectedLinks = Array.from(group.querySelectorAll(`a[href^="/"]`)).filter(link => PAGE_PATHS.includes(link.getAttribute("href")));
+        if (!protectedLinks.length) return;
+        const anyVisible = protectedLinks.some(link => link.style.display !== "none");
+        if (!anyVisible && token) group.style.display = "none";
+    });
 }
 
 function hydrateSidebarUser() {
@@ -248,13 +335,15 @@ function initAdaptiveViewport() {
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
-    const protectedPaths = ["/dashboard", "/employees", "/attendance", "/payroll", "/performance", "/notifications", "/profile", "/portal", "/recruitment", "/applications", "/voice-interview", "/interviews", "/themes", "/candidate-process"];
+    const protectedPaths = PAGE_PATHS;
     const path = window.location.pathname;
-    if (protectedPaths.some(p => path.startsWith(p))) requireAuth();
+    const protectedPath = protectedPaths.find(p => path === p || path.startsWith(p + "/"));
+    if (protectedPath && requireAuth() && !canAccessPath(roleOf(), protectedPath)) window.location.replace(defaultPathForRole(roleOf()));
     window.addEventListener("pageshow", (event) => {
-        const protectedPage = protectedPaths.some(p => window.location.pathname.startsWith(p));
-        if (protectedPage && (!getToken() || event.persisted)) {
+        const protectedPage = protectedPaths.find(p => window.location.pathname === p || window.location.pathname.startsWith(p + "/"));
+        if (protectedPage && (!getToken() || !canAccessPath(roleOf(), protectedPage) || event.persisted)) {
             if (!getToken()) window.location.replace("/login");
+            else if (!canAccessPath(roleOf(), protectedPage)) window.location.replace(defaultPathForRole(roleOf()));
         }
     });
 })();

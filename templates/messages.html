@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Messages | PeopleOps HRMS{% endblock %}
+
+{% block content %}
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Employee Messaging</p>
+        <h1>Messages</h1>
+        <p class="muted">Chat with employees from your allowed department or team scope.</p>
+    </div>
+</section>
+
+<section class="messages-layout">
+    <aside class="panel message-sidebar-panel">
+        <div class="toolbar-right compact-toolbar">
+            <input id="messageEmployeeSearch" placeholder="Search employees to message">
+            <button class="btn small" id="messageEmployeeSearchBtn" type="button">Search</button>
+        </div>
+        <h2>Existing Chats</h2>
+        <div id="conversationList" class="mini-list"></div>
+        <h2>Start New Chat</h2>
+        <div id="messageEmployeeList" class="mini-list"></div>
+    </aside>
+
+    <section class="panel message-thread-panel">
+        <div class="message-thread-head">
+            <div>
+                <p class="eyebrow">Current Chat</p>
+                <h2 id="messageThreadTitle">Select an employee</h2>
+                <p id="messageThreadSubtitle" class="muted">Choose an existing chat or start a new one from the employee list.</p>
+            </div>
+        </div>
+        <div id="messageThread" class="message-thread empty-state">No conversation selected.</div>
+        <form id="messageForm" class="message-compose" hidden>
+            <input id="messageInput" placeholder="Type a message..." autocomplete="off">
+            <button class="btn" type="submit">Send</button>
+        </form>
+    </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/messages.js') }}"></script>
+{% endblock %}

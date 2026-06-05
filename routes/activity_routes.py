@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from database.db import activity_logs_collection, users_collection
-from utils.response import ok
+from utils.response import ok, fail
 from services.hrms_service import role_permissions, to_object_id, user_role
 
 
@@ -27,7 +27,9 @@ def activity_public(activity):
 @jwt_required()
 def get_hr_activity():
     user_id = to_object_id(get_jwt_identity())
-    user = users_collection.find_one({"_id": user_id})
+    user = users_collection.find_one({"_id": user_id, "is_active": True})
+    if not user:
+        return fail("User not found", 404)
     permissions = role_permissions(user_role(user))
     query = {} if permissions.get("can_view_company_dashboard") else {"actor_id": user_id}
     category = (request.args.get("category") or "").strip()
