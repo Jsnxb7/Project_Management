@@ -1,23 +1,61 @@
 {% extends "base.html" %}
 {% block title %}Interview Room | AI PeopleOps HRMS{% endblock %}
 {% block content %}
-<section class="page-head">
-    <p class="eyebrow">Interview Room</p>
-    <h1>Room {{ room_code }}</h1>
-    <p class="muted">This shared room is cut off from the internal HRMS. Use it for candidate/interviewer messaging, transcript notes, and AI voice integration.</p>
-</section>
-<section class="details-grid">
-    <div class="panel">
-        <h2>Room Messages</h2>
-        <div id="roomMessages" class="mini-list room-box"></div>
+<section class="page-head split">
+    <div>
+        <p class="eyebrow">Interview Room</p>
+        <h1>Room {{ room_code }}</h1>
+        <p class="muted">Limited interview workspace with chat, transcript area, webcam placeholders, AI avatar space, and speech activity indicators. STT/TTS/webcam wiring can be added later.</p>
     </div>
+    <div class="hero-actions">
+        <a class="btn secondary" href="/candidate-process" data-candidate-link>My Steps</a>
+        <a class="btn secondary" href="/interviews" data-interview-link>All Rooms</a>
+    </div>
+</section>
+
+<section class="interview-stage-grid">
+    <div class="panel video-tile candidate-video-tile">
+        <div class="split"><h2>Candidate Camera</h2><span class="status-pill">Webcam Placeholder</span></div>
+        <div class="video-placeholder candidate-feed">
+            <div class="camera-icon">◉</div>
+            <p>Candidate webcam feed will appear here.</p>
+        </div>
+        <div class="voice-meter candidate-meter" aria-label="candidate voice line"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+
+    <div class="panel video-tile ai-avatar-tile">
+        <div class="split"><h2>AI Interview Avatar</h2><span class="status-pill">TTS/STT Ready</span></div>
+        <div class="ai-avatar-shell">
+            <div class="ai-avatar-orb">AI</div>
+            <p id="aiPromptText">AI interviewer response and prompts will appear here.</p>
+        </div>
+        <div class="voice-meter ai-meter active" aria-label="ai voice line"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+</section>
+
+<section class="details-grid interview-details-grid">
     <div class="panel">
-        <h2>Send Message / Transcript Chunk</h2>
-        <form id="roomForm">
-            <label>Your Display Name</label><input id="roomSender" placeholder="Candidate / Interviewer">
-            <label>Message</label><textarea id="roomMessage" required placeholder="Type message or paste STT transcript chunk..."></textarea>
+        <h2>Room Chat</h2>
+        <div id="roomMessages" class="mini-list room-box"></div>
+        <form id="roomForm" class="room-compose">
+            <div class="form-row">
+                <div><label>Your Display Name</label><input id="roomSender" placeholder="Candidate / Interviewer / AI Assistant"></div>
+                <div><label>Message Type</label><select id="roomKind"><option value="chat">Chat</option><option value="transcript">Transcript</option><option value="ai-note">AI Note</option><option value="system">System Note</option></select></div>
+            </div>
+            <label>Message / Transcript Chunk</label><textarea id="roomMessage" required placeholder="Type message, notes, or paste STT transcript chunk..."></textarea>
             <button class="btn full" type="submit">Send</button>
         </form>
+    </div>
+
+    <div class="panel">
+        <h2>Live Transcript</h2>
+        <div id="transcriptBox" class="transcript-box"><p class="empty">Transcript chunks sent as type Transcript will appear here.</p></div>
+        <div class="hero-actions"><button class="btn small secondary" id="mockCandidateSpeech" type="button">Mock Candidate Voice</button><button class="btn small secondary" id="mockAiSpeech" type="button">Mock AI Voice</button></div>
+    </div>
+
+    <div class="panel">
+        <h2>Assigned Process</h2>
+        <div id="roomDetails" class="mini-list"></div>
     </div>
 </section>
 <script>window.ROOM_CODE = {{ room_code|tojson }};</script>

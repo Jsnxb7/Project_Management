@@ -20,6 +20,13 @@ def protected_page(view):
         if not session.get("user_id"):
             return redirect(url_for("login_page"))
 
+        # Candidate users are intentionally cut off from the internal HRMS.
+        # They can only view their process tracker and assigned interview rooms.
+        role = session.get("hrms_role") or session.get("portal_role")
+        candidate_allowed = request.path.startswith(("/candidate-process", "/interview-room"))
+        if role == "Candidate" and not candidate_allowed:
+            return redirect(url_for("candidate_process_page"))
+
         response = make_response(view(*args, **kwargs))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
@@ -95,6 +102,7 @@ def create_app():
             "/interviews",
             "/voice-interview",
             "/themes",
+            "/candidate-process",
         )
 
         if request.path.startswith(protected_prefixes):
@@ -174,6 +182,11 @@ def create_app():
     @protected_page
     def interviews_page():
         return render_template("interviews.html")
+
+    @app.route("/candidate-process")
+    @protected_page
+    def candidate_process_page():
+        return render_template("candidate_process.html")
 
     @app.route("/interview-room/<room_code>")
     def interview_room_page(room_code):

@@ -10,3 +10,4 @@ Werkzeug
 openpyxl
 PyPDF2
 python-docx
+pdfplumber

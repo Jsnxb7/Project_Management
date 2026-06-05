@@ -5,7 +5,7 @@
     <div>
         <p class="eyebrow">Recruitment AI Workspace</p>
         <h1>Job-wise resume screening</h1>
-        <p class="muted">Create JDs, extract keywords, screen one applicant or bulk resumes, and send shortlisted candidates into review/interview flow.</p>
+        <p class="muted">Create or edit JDs, set posting close dates, share job control, screen single/bulk resumes, and review explainable AI reports.</p>
     </div>
     <div class="hero-actions">
         <a class="btn secondary" href="/applications">Review Applications</a>
@@ -24,32 +24,35 @@
     <div class="panel">
         <div class="split">
             <div>
-                <p class="eyebrow">Step 1</p>
-                <h2>Create Job + JD</h2>
+                <p class="eyebrow" id="jobFormMode">Step 1</p>
+                <h2 id="jobFormTitle">Create Job + JD</h2>
             </div>
-            <span class="status-pill">JD → Keywords</span>
+            <span class="status-pill">JD → Keywords → Access</span>
         </div>
         <form id="jobForm" class="stack-form">
+            <input id="editingJobId" type="hidden">
             <label>Title</label><input id="jobTitle" required placeholder="Python Flask Developer">
             <label>Department</label><input id="jobDepartment" placeholder="Engineering">
             <div class="form-row">
                 <div><label>Location</label><input id="jobLocation" placeholder="Remote / Hybrid / Office"></div>
-                <div><label>Employment Type</label><select id="jobType"><option>Full-time</option><option>Internship</option><option>Contract</option></select></div>
+                <div><label>Employment Type</label><select id="jobType"><option>Full-time</option><option>Internship</option><option>Contract</option><option>Part-time</option></select></div>
             </div>
-            <label>Minimum AI Score</label><input id="minimumScore" type="number" min="1" max="100" value="70">
-            <label>Manual Keywords <span class="muted">optional, comma separated</span></label><input id="jobKeywords" placeholder="Python, Flask, MongoDB, REST API">
             <div class="form-row">
-                <div>
-                    <label>Extra Viewers <span class="muted">can view applicants/reports</span></label>
-                    <select id="jobViewers" multiple size="5"></select>
-                </div>
-                <div>
-                    <label>Controllers <span class="muted">can screen/review/allot process</span></label>
-                    <select id="jobControllers" multiple size="5"></select>
-                </div>
+                <div><label>Minimum AI Score</label><input id="minimumScore" type="number" min="1" max="100" value="70"></div>
+                <div><label>Status</label><select id="jobStatus"><option>Open</option><option>Paused</option><option>Closed</option><option>Archived</option></select></div>
             </div>
+            <label>Posting Open Until</label><input id="jobOpenUntil" type="datetime-local">
+            <p class="muted">Public applicants can apply only while status is Open and this date/time has not passed.</p>
+            <label>Manual Keywords <span class="muted">optional, comma separated</span></label><input id="jobKeywords" placeholder="Python, Flask, MongoDB, NoSQL, REST API">
+            <label>Viewers <span class="muted">can see job, applicants, resumes, reports, progress</span></label>
+            <select id="jobViewers" multiple size="5"></select>
+            <label>Controllers <span class="muted">can screen, edit, review, shortlist, and allot process</span></label>
+            <select id="jobControllers" multiple size="5"></select>
             <label>Job Description</label><textarea id="jobDescription" required placeholder="Paste JD, responsibilities, required skills, expected experience..."></textarea>
-            <button class="btn full" type="submit">Create Job, Extract Keywords and Set Access</button>
+            <div class="hero-actions">
+                <button class="btn" id="jobSubmitBtn" type="submit">Create Job and Extract Keywords</button>
+                <button class="btn secondary" id="cancelEditJobBtn" type="button" hidden>Cancel Edit</button>
+            </div>
         </form>
         <p id="jobMessage" class="message"></p>
     </div>
@@ -58,14 +61,14 @@
         <div class="split">
             <div>
                 <p class="eyebrow">Step 2</p>
-                <h2>Select Job</h2>
+                <h2>Select / Edit Job</h2>
             </div>
             <button id="refreshJobsBtn" class="btn small secondary" type="button">Refresh</button>
         </div>
         <label>Active screening job</label>
         <select id="jobSelect"><option value="">Select a job...</option></select>
-        <div id="selectedJobBox" class="soft-panel muted">Select a job to view JD keywords and screening limits.</div>
-        <h3>All Jobs</h3>
+        <div id="selectedJobBox" class="soft-panel muted">Select a job to view JD keywords, progress, close date, and access.</div>
+        <h3>Jobs Shared With You</h3>
         <div id="jobList" class="mini-list"></div>
     </div>
 </section>
@@ -83,7 +86,7 @@
             <label>Candidate Name</label><input id="singleName" placeholder="Candidate name">
             <label>Candidate Email</label><input id="singleEmail" type="email" placeholder="candidate@email.com">
             <label>Phone</label><input id="singlePhone" placeholder="Phone number">
-            <label>Resume</label><input id="singleResume" type="file" accept=".pdf,.doc,.docx,.txt" required>
+            <label>Resume</label><input id="singleResume" type="file" accept=".pdf,.doc,.docx,.txt,.tex,.rtf,.md" required>
             <label>Internal Note / Cover Note</label><textarea id="singleNote" placeholder="Optional note to include in screening context"></textarea>
             <button class="btn full" type="submit">Screen Single Resume</button>
         </form>
@@ -99,7 +102,7 @@
             <span class="status-pill">up to 50 files</span>
         </div>
         <form id="bulkScreenForm" class="stack-form" enctype="multipart/form-data">
-            <label>Bulk Resumes</label><input id="bulkResumes" type="file" accept=".pdf,.doc,.docx,.txt" multiple required>
+            <label>Bulk Resumes</label><input id="bulkResumes" type="file" accept=".pdf,.doc,.docx,.txt,.tex,.rtf,.md" multiple required>
             <p class="muted">Each file becomes an application under the selected job. Candidate names are derived from file names and can be reviewed later.</p>
             <button class="btn full" type="submit">Run Bulk Screening</button>
         </form>

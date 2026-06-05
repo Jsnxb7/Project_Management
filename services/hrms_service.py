@@ -32,6 +32,7 @@ HRMS_ROLES = [
     "HR Operations Specialist",
     "Senior Manager",
     "Employee",
+    "Candidate",
 ]
 HR_POSITION_FAMILIES = {
     "HR Leadership": ["HR Director", "HR Manager", "HR Business Partner"],
@@ -42,6 +43,7 @@ HR_POSITION_FAMILIES = {
     "Business Management": ["Management Admin", "Senior Manager"],
     "Interview Panel": ["Technical Interviewer", "Panel Interviewer"],
     "Self Service": ["Employee"],
+    "Candidate Portal": ["Candidate"],
 }
 ROLE_ALIASES = {
     "Root": "Super User",
@@ -72,6 +74,7 @@ def user_role(user):
 
 def role_permissions(role):
     role = normalize_role(role)
+    candidate = role == "Candidate"
     super_user = role == "Super User"
     hr_leadership = super_user or role in ["Management Admin", "HR Director", "HR Manager", "HR Business Partner"]
     recruiter = hr_leadership or role in ["HR Recruiter", "Talent Acquisition Specialist"]
@@ -86,6 +89,7 @@ def role_permissions(role):
         "can_manage_employees": hr_leadership or role == "HR Operations Specialist",
         "can_view_company_dashboard": super_user or hr_leadership,
         "can_view_recruitment": recruiter or interviewer,
+        "can_view_candidate_process": candidate,
         "can_manage_recruitment": recruiter,
         "can_ai_screen_resumes": recruiter,
         "can_run_voice_interviews": interviewer,
@@ -98,7 +102,7 @@ def role_permissions(role):
         "can_manage_learning": people_dev,
         "can_manage_employee_relations": employee_relations,
         "can_manage_leave": employee_relations or team_manager,
-        "can_view_self_service": True,
+        "can_view_self_service": not candidate,
         "can_customize_theme": True,
     }
 

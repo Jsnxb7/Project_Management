@@ -28,6 +28,9 @@ import hashlib
 import html
 import math
 import re
+import subprocess
+import tempfile
+import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +40,11 @@ try:
     import PyPDF2
 except Exception:  # optional dependency
     PyPDF2 = None
+
+try:
+    import pdfplumber
+except Exception:  # optional dependency
+    pdfplumber = None
 
 try:
     import docx
@@ -73,6 +81,41 @@ SKILL_HINTS = {
     "communication", "leadership", "management", "stakeholder", "negotiation", "sourcing",
     "screening", "interviewing", "employee relations", "talent acquisition",
 }
+
+
+SKILL_ALIASES = {
+    "mongodb": ["mongo db", "mongo", "mongodb atlas", "document database", "document db", "nosql", "no sql", "non relational database", "non-relational database"],
+    "nosql": ["mongodb", "mongo db", "mongo", "document database", "document db", "non relational database", "non-relational database"],
+    "rest api": ["rest", "restful api", "rest apis", "api", "apis", "web api", "http api"],
+    "flask": ["flask framework", "python flask", "flask backend"],
+    "javascript": ["js", "ecmascript"],
+    "machine learning": ["ml", "predictive modeling", "predictive analytics", "model training"],
+    "deep learning": ["neural network", "neural networks", "cnn", "lstm", "transformer"],
+    "nlp": ["natural language processing", "text processing", "language processing"],
+    "transformers": ["hugging face", "huggingface", "llm", "large language model", "language model"],
+    "opencv": ["computer vision", "cv", "image processing"],
+    "yolo": ["yolov8", "object detection", "defect detection"],
+    "dash": ["plotly dash", "plotly", "analytics dashboard", "dashboard"],
+    "git": ["github", "version control", "repo management", "repository management"],
+    "aws": ["amazon web services", "cloud deployment"],
+    "azure": ["microsoft azure", "cloud"],
+    "scrum": ["agile", "sprints", "sprint", "kanban"],
+    "hrms": ["human resource management system", "hr management system", "peopleops"],
+}
+
+SKILL_CATEGORIES = {
+    "backend": {"python", "flask", "django", "fastapi", "rest api", "api", "sqlalchemy", "jinja2"},
+    "database": {"mongodb", "nosql", "mysql", "postgresql", "sql", "redis"},
+    "frontend": {"javascript", "html", "css", "tailwind", "bootstrap", "react"},
+    "ai_ml": {"machine learning", "deep learning", "nlp", "transformers", "tensorflow", "keras", "scikit-learn", "pandas", "numpy", "lstm", "llm"},
+    "computer_vision": {"opencv", "yolo", "computer vision", "ocr", "defect detection"},
+    "devops": {"git", "github", "docker", "aws", "azure", "linux", "nginx", "gunicorn"},
+    "analytics": {"dash", "plotly", "tableau", "power bi", "matplotlib", "business intelligence"},
+    "process": {"agile", "scrum", "kanban", "documentation", "testing", "code review"},
+}
+
+DEGREE_TERMS = {"bachelor", "bachelors", "master", "masters", "bca", "mca", "computer applications", "computer science", "information technology", "engineering"}
+CERT_TERMS = {"certification", "certified", "certificate", "aws certified", "azure certification"}
 
 SECTION_HEADERS = {
     "skills", "technical skills", "experience", "work experience", "projects", "education",
@@ -145,7 +188,23 @@ class RecruitmentScreeningModel:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
+    def canonicalize_text(self, text: str) -> str:
+        """Normalize technical aliases so semantic/keyword checks handle variants.
+
+        Example: MongoDB, Mongo DB, NoSQL, document database, and MongoDB Atlas
+        all reinforce the same family instead of being treated as unrelated words.
+        """
+        text = text or ""
+        normalized = text
+        for canonical, aliases in SKILL_ALIASES.items():
+            terms = sorted(set([canonical, *aliases]), key=len, reverse=True)
+            for term in terms:
+                pattern = r"(?<![A-Za-z0-9])" + re.escape(term).replace(r"\ ", r"[\s\-_/]+") + r"(?![A-Za-z0-9])"
+                normalized = re.sub(pattern, f" {canonical} ", normalized, flags=re.IGNORECASE)
+        return normalized
+
     def tokenize(self, text: str) -> List[str]:
+        text = self.canonicalize_text(text)
         raw = re.findall(r"[A-Za-z][A-Za-z0-9+#.\-]{1,}", text or "")
         return [t.lower().strip(".-") for t in raw if t.strip(".-")]
 
@@ -153,23 +212,174 @@ class RecruitmentScreeningModel:
         chunks = re.split(r"(?<=[.!?])\s+|\n+", text or "")
         return [c.strip() for c in chunks if c and c.strip()]
 
+    def _extract_pdf_text(self, file_path: Path) -> str:
+        """Extract text from a PDF using multiple safe fallbacks."""
+        pages: List[str] = []
+
+        # Primary lightweight path: PyPDF2.
+        if PyPDF2 is not None:
+            try:
+                with file_path.open("rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page in reader.pages:
+                        pages.append(page.extract_text() or "")
+                text = self.clean_text("\n".join(pages))
+                if len(text) > 25:
+                    return text
+            except Exception:
+                pages = []
+
+        # Fallback: pdfplumber, better for many resume PDFs with columns/tables.
+        if pdfplumber is not None:
+            try:
+                with pdfplumber.open(str(file_path)) as pdf:
+                    pages = [page.extract_text(x_tolerance=1, y_tolerance=3) or "" for page in pdf.pages]
+                text = self.clean_text("\n".join(pages))
+                if len(text) > 25:
+                    return text
+            except Exception:
+                pass
+
+        # Last fallback for odd PDFs: read raw bytes and recover visible strings.
+        try:
+            raw = file_path.read_bytes().decode("latin-1", errors="ignore")
+            raw = re.sub(r"[^A-Za-z0-9@+.#:/,_\-\s]", " ", raw)
+            return self.clean_text(raw)
+        except Exception:
+            return ""
+
+    def _extract_docx_text(self, file_path: Path) -> str:
+        """Extract text from DOCX including paragraphs, tables, headers/footers."""
+        if docx is None:
+            return ""
+        try:
+            document = docx.Document(str(file_path))
+            parts: List[str] = []
+
+            for paragraph in document.paragraphs:
+                if paragraph.text:
+                    parts.append(paragraph.text)
+
+            for table in document.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text:
+                            parts.append(cell.text)
+
+            for section in document.sections:
+                for paragraph in section.header.paragraphs:
+                    if paragraph.text:
+                        parts.append(paragraph.text)
+                for paragraph in section.footer.paragraphs:
+                    if paragraph.text:
+                        parts.append(paragraph.text)
+
+            return self.clean_text("\n".join(parts))
+        except Exception:
+            return ""
+
+    def _extract_legacy_doc_text(self, file_path: Path) -> str:
+        """Best-effort extraction for legacy .doc files.
+
+        Python-docx cannot read old binary .doc files. This function first tries
+        common local converters when available, then falls back to recovering
+        readable strings from the binary file so the screening process still has
+        usable text instead of silently failing.
+        """
+        for command in (["antiword", str(file_path)], ["catdoc", str(file_path)]):
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+                text = self.clean_text(result.stdout or "")
+                if len(text) > 25:
+                    return text
+            except Exception:
+                continue
+
+        # Some files are mislabeled as .doc but are actually DOCX archives.
+        if zipfile.is_zipfile(file_path):
+            text = self._extract_docx_text(file_path)
+            if text:
+                return text
+
+        try:
+            data = file_path.read_bytes()
+            strings = re.findall(rb"[A-Za-z0-9@+.#:/,_\- ]{4,}", data)
+            decoded = "\n".join(x.decode("latin-1", errors="ignore") for x in strings)
+            return self.clean_text(decoded)
+        except Exception:
+            return ""
+
     def extract_resume_text(self, path: str | Path) -> str:
+        """Extract readable text from a resume file.
+
+        This method is intentionally format-aware, but it does not decide where
+        the extracted text is stored. Routes should call
+        ``convert_resume_to_txt`` first so every PDF/DOC/DOCX/RTF/TEX upload has
+        a saved normalized .txt copy, then screen using that .txt content.
+        """
         file_path = Path(path)
         suffix = file_path.suffix.lower()
-        if suffix == ".pdf" and PyPDF2:
-            pages: List[str] = []
-            with file_path.open("rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
-                    pages.append(page.extract_text() or "")
-            return self.clean_text("\n".join(pages))
-        if suffix in {".docx", ".doc"} and docx:
-            document = docx.Document(str(file_path))
-            return self.clean_text("\n".join(p.text for p in document.paragraphs))
+
+        if not file_path.exists():
+            return ""
+
+        if suffix == ".pdf":
+            return self._extract_pdf_text(file_path)
+
+        if suffix == ".docx":
+            return self._extract_docx_text(file_path)
+
+        if suffix == ".doc":
+            return self._extract_legacy_doc_text(file_path)
+
+        if suffix in {".txt", ".tex", ".md", ".rtf"}:
+            try:
+                return self.clean_text(file_path.read_text(encoding="utf-8", errors="ignore"))
+            except Exception:
+                try:
+                    return self.clean_text(file_path.read_text(encoding="latin-1", errors="ignore"))
+                except Exception:
+                    return ""
+
+        # Final fallback for allowed unknown text-like files.
         try:
             return self.clean_text(file_path.read_text(encoding="utf-8", errors="ignore"))
         except Exception:
             return ""
+
+    def convert_resume_to_txt(self, source_path: str | Path, txt_path: str | Path | None = None) -> Dict[str, Any]:
+        """Convert any supported resume format into a normalized .txt file.
+
+        Screening should always run against this normalized text file. That gives
+        the recruitment module a single predictable input format and makes failed
+        parsing easy to inspect during testing.
+        """
+        source = Path(source_path)
+        if txt_path is None:
+            txt_dir = source.parent / "converted_txt"
+            txt_dir.mkdir(parents=True, exist_ok=True)
+            txt_path = txt_dir / f"{source.stem}.txt"
+        else:
+            txt_path = Path(txt_path)
+            txt_path.parent.mkdir(parents=True, exist_ok=True)
+
+        text = self.extract_resume_text(source)
+        text = self.clean_text(text)
+        ok = len(text.strip()) >= 25
+
+        if ok:
+            Path(txt_path).write_text(text, encoding="utf-8")
+
+        return {
+            "ok": ok,
+            "source_path": str(source),
+            "txt_path": str(txt_path) if ok else None,
+            "text": text,
+            "char_count": len(text),
+            "word_count": len(self.tokenize(text)),
+            "source_extension": source.suffix.lower(),
+            "message": "Resume converted to normalized text" if ok else "Could not extract enough readable text for screening",
+        }
 
     # -----------------------------
     # Keyword extraction
@@ -294,8 +504,34 @@ class RecruitmentScreeningModel:
     # -----------------------------
     # Explainability helpers
     # -----------------------------
+    def keyword_variants(self, keyword: str) -> List[str]:
+        target = str(keyword or "").lower().strip()
+        variants = {target}
+        if target in SKILL_ALIASES:
+            variants.update(SKILL_ALIASES[target])
+        for canonical, aliases in SKILL_ALIASES.items():
+            if target == canonical or target in aliases:
+                variants.add(canonical)
+                variants.update(aliases)
+        expanded = set()
+        for item in variants:
+            if item.endswith("s") and len(item) > 3:
+                expanded.add(item[:-1])
+            else:
+                expanded.add(item + "s")
+            expanded.add(item)
+        return sorted(expanded, key=len, reverse=True)
+
+    def _term_in_text(self, term: str, text_lower: str) -> bool:
+        if not term:
+            return False
+        pattern = re.escape(term).replace(r"\ ", r"[\s\-_/]+")
+        if " " in term or any(ch in term for ch in "+#."):
+            return bool(re.search(pattern, text_lower, flags=re.IGNORECASE))
+        return bool(re.search(rf"\b{pattern}\b", text_lower, flags=re.IGNORECASE))
+
     def keyword_match(self, jd_keywords: Sequence[str], resume_text: str) -> Tuple[List[str], List[str], float]:
-        resume_lower = (resume_text or "").lower()
+        resume_lower = self.canonicalize_text(resume_text or "").lower() + " " + (resume_text or "").lower()
         matched: List[str] = []
         missing: List[str] = []
         seen = set()
@@ -304,18 +540,7 @@ class RecruitmentScreeningModel:
             if not target or target in seen:
                 continue
             seen.add(target)
-            # Word boundary for short terms, substring for multi-word/technical terms.
-            variants = {target}
-            if target.endswith("s") and len(target) > 3:
-                variants.add(target[:-1])
-            else:
-                variants.add(target + "s")
-            ok = False
-            for variant in variants:
-                if " " in variant or any(ch in variant for ch in "+#."):
-                    ok = ok or (variant in resume_lower)
-                else:
-                    ok = ok or bool(re.search(rf"\b{re.escape(variant)}\b", resume_lower))
+            ok = any(self._term_in_text(variant, resume_lower) for variant in self.keyword_variants(target))
             if ok:
                 matched.append(target)
             else:
@@ -324,16 +549,20 @@ class RecruitmentScreeningModel:
         return matched, missing, round((len(matched) / total) * 100, 2)
 
     def keyword_counts(self, text: str, keywords: Sequence[str]) -> Dict[str, int]:
-        text_lower = (text or "").lower()
+        text_lower = self.canonicalize_text(text or "").lower() + " " + (text or "").lower()
         counts: Dict[str, int] = {}
         for kw in keywords:
             term = str(kw).lower().strip()
             if not term:
                 continue
-            if " " in term or any(ch in term for ch in "+#."):
-                counts[term] = text_lower.count(term)
-            else:
-                counts[term] = len(re.findall(rf"\b{re.escape(term)}\b", text_lower))
+            total = 0
+            for variant in self.keyword_variants(term):
+                pattern = re.escape(variant).replace(r"\ ", r"[\s\-_/]+")
+                if " " in variant or any(ch in variant for ch in "+#."):
+                    total += len(re.findall(pattern, text_lower, flags=re.IGNORECASE))
+                else:
+                    total += len(re.findall(rf"\b{pattern}\b", text_lower, flags=re.IGNORECASE))
+            counts[term] = total
         return counts
 
     def highlighted_snippets(self, text: str, keywords: Sequence[str], window: int = 80, max_snippets: int = 8) -> List[Dict[str, str]]:
@@ -365,6 +594,66 @@ class RecruitmentScreeningModel:
             if len(snippets) >= max_snippets:
                 break
         return snippets
+
+    def section_presence(self, text: str) -> Dict[str, bool]:
+        lower = (text or "").lower()
+        return {
+            "contact": bool(re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text or "")) or bool(re.search(r"\+?\d[\d\s-]{8,}", text or "")),
+            "skills": any(h in lower for h in ["skills", "technical skills", "technologies"]),
+            "experience": any(h in lower for h in ["experience", "work experience", "intern", "employment"]),
+            "projects": "project" in lower or "projects" in lower,
+            "education": "education" in lower or any(t in lower for t in DEGREE_TERMS),
+            "certifications": any(t in lower for t in CERT_TERMS),
+        }
+
+    def ats_compatibility_checks(self, text: str) -> Dict[str, Any]:
+        lower = (text or "").lower()
+        sections = self.section_presence(text)
+        words = self.tokenize(text)
+        action_count = sum(1 for v in ACTION_VERBS if re.search(rf"\b{re.escape(v)}\b", lower))
+        quantified = len(re.findall(r"\b\d+(?:\.\d+)?%?\b", text or ""))
+        issues = []
+        if not sections["contact"]:
+            issues.append("Contact details were not clearly detected.")
+        if not sections["skills"]:
+            issues.append("Skills section is missing or non-standard.")
+        if not sections["experience"]:
+            issues.append("Experience/internship section is missing or hard to parse.")
+        if len(words) < 120:
+            issues.append("Resume text is very short for reliable screening.")
+        if action_count < 3:
+            issues.append("Few achievement/action verbs were detected.")
+        if quantified < 2:
+            issues.append("Few quantified achievements or metrics were detected.")
+        score = 55
+        score += sum(6 for present in sections.values() if present)
+        score += min(action_count * 2, 12)
+        score += min(quantified * 3, 12)
+        score = max(0, min(100, score))
+        return {"score": round(score, 2), "sections": sections, "issues": issues, "action_verb_count": action_count, "metric_count": quantified}
+
+    def category_fit_scores(self, jd_text: str, resume_text: str, jd_keywords: Sequence[str]) -> Dict[str, float]:
+        jd_all = set(self.extract_keywords(jd_text, limit=80)) | {str(k).lower() for k in jd_keywords or []}
+        resume_lower = self.canonicalize_text(resume_text or "").lower() + " " + (resume_text or "").lower()
+        scores = {}
+        for category, terms in SKILL_CATEGORIES.items():
+            expected = sorted(t for t in terms if t in jd_all or any(self._term_in_text(t, self.canonicalize_text(jd_text).lower()) for _ in [0]))
+            if not expected:
+                # If JD does not emphasize this category, leave it neutral rather than penalizing.
+                continue
+            matched = sum(1 for term in expected if any(self._term_in_text(v, resume_lower) for v in self.keyword_variants(term)))
+            scores[category] = round((matched / max(len(expected), 1)) * 100, 2)
+        return scores
+
+    def extract_experience_years(self, text: str) -> Optional[float]:
+        lower = (text or "").lower()
+        found = []
+        for m in re.findall(r"(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?)", lower):
+            try:
+                found.append(float(m))
+            except Exception:
+                pass
+        return max(found) if found else None
 
     # -----------------------------
     # Writing, grammar, structure
@@ -437,16 +726,35 @@ class RecruitmentScreeningModel:
         jd_text = self.clean_text(jd_text)
         resume_text = self.clean_text(resume_text)
         minimum = float(min_score if min_score is not None else self.config.minimum_score)
-        keywords = list(jd_keywords) if jd_keywords else self.extract_keywords(jd_text)
 
-        semantic_raw = self.cosine_similarity(self.embed_text(jd_text), self.embed_text(resume_text))
+        # Blend manual JD keywords + extracted JD keywords so a recruiter can type
+        # MongoDB/NoSQL and still match Mongo DB, document DB, or MongoDB Atlas in
+        # a resume. Canonical aliases are included for explainable matching.
+        base_keywords = list(jd_keywords) if jd_keywords else []
+        extracted_keywords = self.extract_keywords(jd_text)
+        keywords = []
+        seen = set()
+        for kw in [*base_keywords, *extracted_keywords]:
+            target = str(kw).lower().strip()
+            if not target or target in seen:
+                continue
+            seen.add(target)
+            keywords.append(target)
+
+        canonical_jd = self.canonicalize_text(jd_text)
+        canonical_resume = self.canonicalize_text(resume_text)
+        semantic_raw = self.cosine_similarity(self.embed_text(canonical_jd), self.embed_text(canonical_resume))
         matched, missing, keyword_score = self.keyword_match(keywords, resume_text)
-        # Calibrate lightweight semantic score with concept coverage. This keeps the
-        # offline model practical for resumes where exact wording differs but the
-        # same required skills are present.
+
+        # ATS-style screeners usually combine semantic fit with keyword coverage and
+        # parse quality. Keep synonym coverage influential so phrasing differences do
+        # not unfairly reject a good candidate.
         semantic_score = round(max(semantic_raw * 100, keyword_score * 0.92), 2)
         writing_score = self.writing_quality_score(resume_text)
         structure_score = self.structure_score(resume_text)
+        ats_checks = self.ats_compatibility_checks(resume_text)
+        category_scores = self.category_fit_scores(jd_text, resume_text, keywords)
+        experience_years = self.extract_experience_years(resume_text)
 
         weights = self.config.normalized_weights()
         final = round(
@@ -456,12 +764,20 @@ class RecruitmentScreeningModel:
             + structure_score * weights["structure"],
             2,
         )
+
+        # Small parse-quality adjustment: reward resumes that parse cleanly and use
+        # standard ATS sections, penalize very weak parse quality.
+        if ats_checks["score"] >= 88:
+            final = min(100.0, round(final + 2.0, 2))
+        elif ats_checks["score"] < 62:
+            final = max(0.0, round(final - 4.0, 2))
+
         recommendation = "Shortlist" if final >= minimum else "Reject"
         confidence = self._confidence_label(final, minimum)
 
         counts = self.keyword_counts(resume_text, matched)
         matched_details = [
-            {"keyword": kw, "count": counts.get(kw, 0)} for kw in matched
+            {"keyword": kw, "count": counts.get(kw, 0), "aliases_checked": self.keyword_variants(kw)} for kw in matched
         ]
         snippets = self.highlighted_snippets(resume_text, matched)
 
@@ -471,6 +787,7 @@ class RecruitmentScreeningModel:
             "keyword_score": keyword_score,
             "writing_score": writing_score,
             "structure_score": structure_score,
+            "ats_score": ats_checks.get("score"),
             "final_score": final,
             "minimum_score": minimum,
             "recommendation": recommendation,
@@ -479,11 +796,15 @@ class RecruitmentScreeningModel:
             "missing_keywords": missing,
             "matched_keyword_details": matched_details,
             "highlighted_snippets": snippets,
+            "category_scores": category_scores,
+            "ats_checks": ats_checks,
+            "experience_years_detected": experience_years,
             "score_breakdown": {
                 "semantic_weight": weights["semantic"],
                 "keyword_weight": weights["keyword"],
                 "writing_weight": weights["writing"],
                 "structure_weight": weights["structure"],
+                "ats_adjustment_note": "ATS parse quality can add up to +2 or subtract up to -4 after weighted scoring.",
             },
             "summary": self.build_report_summary(final, minimum, matched, missing, writing_score, structure_score),
         }

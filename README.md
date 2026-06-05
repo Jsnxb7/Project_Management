@@ -37,7 +37,7 @@ The system supports:
 | Authentication | JWT-style token stored client-side |
 | Styling | Custom responsive CSS, theme variables |
 | AI Recruitment | Lightweight deterministic vector-style scoring, keyword matching, grammar scoring |
-| Resume Parsing | TXT by default, optional PDF/DOCX parsers |
+| Resume Parsing | PDF/DOC/DOCX/TXT normalized to TXT before screening |
 | Real-time-ready Layer | Interview rooms and message structure ready for SocketIO/WebSocket extension |
 | Deployment Ready | Procfile, Render config, environment variables |
 
@@ -810,7 +810,7 @@ services/recruitment_screening_model.py
 It follows the planned recruitment AI approach:
 
 - job description keyword extraction
-- resume text extraction from PDF/DOCX/TXT
+- resume normalization from PDF/DOC/DOCX/TXT/TEX/RTF/MD into TXT before screening
 - vector embedding generation
 - cosine similarity scoring
 - keyword match scoring
@@ -862,7 +862,7 @@ When a job is created, the system extracts JD keywords automatically unless manu
 
 The Recruitment page includes a **Single Resume Screening** form. HR can select a job, upload one resume, and enter candidate details. The system then:
 
-1. extracts resume text from PDF, DOCX, DOC, or TXT,
+1. converts the uploaded resume into a normalized TXT file first, then screens that TXT against the selected JD,
 2. compares the resume against the selected job JD,
 3. calculates semantic similarity,
 4. calculates keyword match score,
@@ -945,86 +945,181 @@ POST   /api/recruitment/applications/<application_id>/assign-interview
 - `can_assign_interviewers`: create interview rooms.
 
 
-## Recruitment Visibility, Resume Screening, and Progress Tracking Update
+## Resume file extraction update
 
-This build connects the recruitment screening model directly to applicant-uploaded resumes and job-specific JDs.
+The AI recruitment screening module now accepts and attempts text extraction from:
 
-### Job ownership and access rules
+- `.pdf` using `PyPDF2` first and `pdfplumber` fallback
+- `.docx` using `python-docx`, including paragraphs, tables, headers, and footers
+- `.doc` using best-effort legacy extraction through `antiword`/`catdoc` if available, then readable binary-string fallback
+- `.txt`, `.tex`, `.rtf`, and `.md` as text-like files
 
-- **Super User** can see and control every job, applicant, resume, AI report, and progress tracker.
-- Every job stores a `created_by` owner.
-- The job creator can see applicant details, uploaded resumes, AI screening reports, progress, and review controls.
-- The job creator can select additional users as:
-  - **Viewers**: can view the job, applicants, resumes, reports, and progress.
-  - **Controllers**: can view everything and also screen resumes, review applicants, shortlist/reject, and allot further interview process.
-- Other users only see recruitment data for jobs shared with them.
+Important: scanned image-only PDFs do not contain selectable text. Those files need an OCR layer before screening. The current module returns a clear error instead of silently generating a bad score when no readable text is extracted.
 
-### Applicant resume connection
+## Latest Recruitment Enhancements
 
-Each application is tied to a specific `job_id`. When a candidate applies or an internal user uploads a resume, the system:
+### Editable Jobs and Posting Window
+- Existing jobs can now be opened in edit mode from the Recruitment workspace.
+- Recruiters/controllers can update title, department, location, employment type, status, minimum AI score, JD text, and manual keywords.
+- Each job supports a `Posting Open Until` date/time. Public applicants can apply only when the job status is `Open` and the closing date/time has not passed.
 
-1. Fetches the selected job and its JD.
-2. Extracts resume text from the applicant-uploaded resume.
-3. Screens the resume against that specific JD.
-4. Stores the uploaded resume path, extracted resume text, matched keywords, missing keywords, and AI scores.
-5. Makes the resume and report visible only to allowed users.
+### Job Visibility and Control
+- Super User can see and control every job, applicant, resume, AI report, and progress tracker.
+- Job creators can always view/control their own jobs.
+- Job creators/controllers can assign extra Viewers and Controllers.
+- Viewers can see the job, applicants, resumes, AI reports, and progress.
+- Controllers can edit jobs, screen resumes, review applicants, shortlist/reject, and assign interviews.
 
-### Single and bulk screening
+### Progress Tracking
+- Job progress now tracks: JD Created, Open for Applications, Applicants Screened, Shortlist Ready, Interview Process, and Final Selection.
+- Applicant progress now tracks: Applied, Screened, Pending Review, Shortlisted, Interview Scheduled, and Selected.
+- Progress bars and step chips are visible in job cards, selected job details, and application cards.
 
-The Recruitment page supports:
+### Improved Resume Screening Model
+- Screening now handles skill aliases and synonyms. For example, `MongoDB`, `Mongo DB`, `MongoDB Atlas`, `NoSQL`, `document database`, and `non-relational database` are treated as related skill evidence.
+- The model now combines semantic scoring, keyword coverage, writing quality, resume structure, ATS parse checks, category fit scores, and explainable keyword evidence.
+- Added ATS-style checks for contact details, standard sections, skills, experience, projects, education, action verbs, and measurable achievements.
+- Reports now include ATS score, category fit, parse warnings, matched aliases, missing keywords, highlighted evidence, and resume preview.
 
-- single applicant screening
-- bulk resume screening
-- job-wise screening distinction
-- minimum JD score filtering
-- access assignment while creating the job
+### Applicant Resume Access
+- Applicant-uploaded resumes are linked to their job-specific application and AI report.
+- Authorized viewers/controllers can download both the original resume and the converted TXT file that was actually used for screening from the Applications Review page.
+- Resume download is protected by the same job visibility rules.
 
-### AI report review
 
-The Applications page now shows:
+### Resume Normalization Before Screening
 
-- applicant details
-- uploaded resume filename
-- resume text preview
-- resume download option
-- semantic score
-- keyword score
-- writing score
-- structure score
-- final score
-- matched keywords
-- missing keywords
-- highlighted resume evidence
-- review controls for allowed controllers
+Every uploaded resume is now converted into a normalized `.txt` file before AI screening starts. The system stores both files:
 
-### Progress tracking
+- the original uploaded resume, such as PDF/DOC/DOCX/TXT/TEX/RTF/MD, and
+- the converted text file inside `static/uploads/resumes/converted_txt/`.
 
-Job-level progress includes:
+The screening model then reads only the converted TXT content. This makes scoring consistent across file formats, makes extraction failures easier to debug, and lets authorized recruitment users download the exact text that was used by the AI report. Older applications can be backfilled automatically when the converted TXT download endpoint is used.
 
-- JD Created
-- Applicants Screened
-- Shortlist Ready
-- Interview Process
-- Final Selection
+Scanned image-only PDFs still need OCR before conversion because they do not contain selectable text.
 
-Applicant-level progress includes:
+## Latest Recruitment Process Update: Candidate Access, Deletion, and Interview Room Workspace
+
+This version extends the recruitment workflow after AI resume screening.
+
+### Application and AI report deletion
+
+Authorized recruitment controllers can now:
+
+- Delete only the AI screening report for an application.
+- Keep the application for rescreening after deleting the report.
+- Delete the full application and linked AI report.
+- Automatically cancel linked interview sessions when an application is deleted.
+
+The delete controls are available from the Applications Review page.
+
+### Shortlist warning and interview scheduling
+
+When an applicant is marked as `Shortlisted`, the system now warns HR/controllers that the next required action is to:
+
+1. Create or link a candidate account.
+2. Schedule the interview.
+3. Assign an interview room.
+4. Define further process steps.
+
+The applicant progress tracker now includes:
 
 - Applied
 - Screened
 - Pending Review
 - Shortlisted
+- Candidate Account
 - Interview Scheduled
+- Interview Steps
 - Selected
 
-Rejected applicants show a rejection-specific progress state.
+### Candidate user creation
 
-### Further process allotment
+When an authorized controller assigns an interview to a shortlisted applicant, the system automatically creates or links a limited candidate user account.
 
-Controllers can allot the next process from the applicant report view. The system can create an interview room and assign:
+Candidate accounts use the role:
 
-- main interviewer
-- panel members
-- process mode such as AI Voice + Human Panel, Technical Interview, HR Discussion, Manager Round, or Final Leadership Round
-- scheduled time
+```text
+Candidate
+```
 
-The application status is updated to `Interview Scheduled`, and the interview room becomes available from the interview module.
+Candidate users can only access:
+
+- Candidate process tracker
+- Assigned interview room links
+
+They are blocked from internal HRMS pages such as dashboard, recruitment, employees, payroll, performance, and admin screens.
+
+The assignment response shows:
+
+- Candidate UID
+- Candidate email
+- Temporary password if a new account was created
+- Interview room link
+
+Existing candidate accounts keep their current password.
+
+### Candidate process page
+
+A new page was added:
+
+```text
+/candidate-process
+```
+
+Candidates can use it to view:
+
+- Application status
+- Review status
+- AI score summary
+- Assigned interview room
+- Scheduled interview time
+- Process steps assigned by HR
+
+### Interview room workspace
+
+The interview room page was redesigned to include placeholders for the full AI voice and human interview experience.
+
+The room now includes:
+
+- Candidate webcam placeholder
+- AI avatar placeholder
+- Candidate voice activity bar
+- AI voice activity bar
+- Room chat
+- Message type selector
+- Transcript area
+- Assigned process steps
+- Candidate/job/interview details
+
+Message types supported now:
+
+```text
+chat
+transcript
+ai-note
+system
+```
+
+Transcript messages are also displayed in the live transcript panel. Actual webcam, STT, TTS, and AI avatar streaming can be wired later.
+
+### Further process assignment
+
+From the AI report page, controllers can assign:
+
+- Main interviewer
+- Panel members
+- Scheduled date/time
+- Interview mode
+- Candidate process steps
+
+Example process steps:
+
+```text
+Join interview room
+Complete AI voice round
+Attend technical panel
+Wait for HR decision
+```
+
+These steps become visible to both HR/controllers and the candidate.

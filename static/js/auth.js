@@ -59,7 +59,8 @@ if (loginForm) {
         if (data.success) {
             localStorage.setItem("token", data.data.token);
             localStorage.setItem("user", JSON.stringify(data.data.user));
-            window.location.href = "/dashboard";
+            const role = data.data.user.hrms_role || data.data.user.portal_role || data.data.user.role;
+            window.location.href = role === "Candidate" ? "/candidate-process" : "/dashboard";
         }
     });
 }

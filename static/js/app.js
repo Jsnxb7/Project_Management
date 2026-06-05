@@ -56,7 +56,8 @@ function roleHas(role, group) {
         people: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner", "HR Operations Specialist", "Employee Relations Manager", "Senior Manager"],
         payroll: ["Super User", "Management Admin", "HR Director", "HR Manager", "Payroll Manager", "Compensation and Benefits Specialist"],
         recruitment: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"],
-        interviewer: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"]
+        interviewer: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"],
+        candidate: ["Candidate"]
     };
     return (map[group] || []).includes(role);
 }
@@ -104,14 +105,16 @@ function setShellVisibility() {
     const setVisible = (selector, show) => {
         document.querySelectorAll(selector).forEach(el => { el.style.display = show ? "" : "none"; });
     };
-    setVisible("[data-auth-link]", !!token);
+    const isCandidate = !!token && roleHas(role, "candidate");
+    setVisible("[data-auth-link]", !!token && !isCandidate);
     setVisible("[data-guest-link]", !token);
-    setVisible("[data-super-link]", !!token && roleHas(role, "super"));
-    setVisible("[data-admin-link]", !!token && roleHas(role, "admin"));
-    setVisible("[data-people-link]", !!token && roleHas(role, "people"));
-    setVisible("[data-hr-lead-link]", !!token && roleHas(role, "payroll"));
-    setVisible("[data-recruitment-link]", !!token && roleHas(role, "recruitment"));
-    setVisible("[data-interview-link]", !!token && roleHas(role, "interviewer"));
+    setVisible("[data-candidate-link]", isCandidate);
+    setVisible("[data-super-link]", !!token && !isCandidate && roleHas(role, "super"));
+    setVisible("[data-admin-link]", !!token && !isCandidate && roleHas(role, "admin"));
+    setVisible("[data-people-link]", !!token && !isCandidate && roleHas(role, "people"));
+    setVisible("[data-hr-lead-link]", !!token && !isCandidate && roleHas(role, "payroll"));
+    setVisible("[data-recruitment-link]", !!token && !isCandidate && roleHas(role, "recruitment"));
+    setVisible("[data-interview-link]", !!token && !isCandidate && roleHas(role, "interviewer"));
 }
 
 function hydrateSidebarUser() {
@@ -245,7 +248,7 @@ function initAdaptiveViewport() {
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
-    const protectedPaths = ["/dashboard", "/employees", "/attendance", "/payroll", "/performance", "/notifications", "/profile", "/portal", "/recruitment", "/applications", "/voice-interview", "/interviews", "/themes"];
+    const protectedPaths = ["/dashboard", "/employees", "/attendance", "/payroll", "/performance", "/notifications", "/profile", "/portal", "/recruitment", "/applications", "/voice-interview", "/interviews", "/themes", "/candidate-process"];
     const path = window.location.pathname;
     if (protectedPaths.some(p => path.startsWith(p))) requireAuth();
     window.addEventListener("pageshow", (event) => {

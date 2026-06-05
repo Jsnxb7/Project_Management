@@ -50,6 +50,10 @@ def extract_resume_text(path):
     return get_default_screening_model().extract_resume_text(Path(path))
 
 
+def convert_resume_to_txt(path, txt_path=None):
+    return get_default_screening_model().convert_resume_to_txt(Path(path), Path(txt_path) if txt_path else None)
+
+
 def screen_resume(jd_text, resume_text, jd_keywords=None, min_score=70, candidate_name=None):
     return get_default_screening_model().screen_resume(
         jd_text=jd_text,
