@@ -27,6 +27,37 @@ function progressBar(progress) {
     return `<div class="score-meter progress-meter"><span style="width:${pct}%"></span></div><div class="progress-chips">${steps}</div>`;
 }
 
+
+function candidateCredentialPanel(a) {
+    if (!a.candidate_account_created) return '<p class="muted">No candidate login account yet.</p>';
+    return `<div class="credential-grid compact">
+        <span><b>UID</b>${escapeHTML(a.candidate_uid || 'N/A')}</span>
+        <span><b>Email</b>${escapeHTML(a.candidate_login_email || a.candidate_email || 'N/A')}</span>
+        <span><b>Password</b>${escapeHTML(a.candidate_login_password || a.candidate_password_note || 'Existing password unchanged')}</span>
+    </div>`;
+}
+
+async function loadShortlistedCandidateCards() {
+    const box = document.getElementById('shortlistedCandidateCards');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/recruitment/applications?shortlisted=1', {headers: authHeaders(false)});
+        const data = await res.json();
+        if (!data.success) { box.innerHTML = `<p class="empty">${escapeHTML(data.message || 'No access')}</p>`; return; }
+        const apps = (data.data.applications || []).slice(0, 8);
+        box.innerHTML = apps.length ? apps.map(a => `<article class="member-card application-card">
+            <div class="split"><h3>${escapeHTML(a.candidate_name || 'Candidate')}</h3><span class="status-pill">${escapeHTML(a.status || 'Shortlisted')}</span></div>
+            <p class="muted">${escapeHTML(a.job_title || 'Job')} • ${escapeHTML(a.candidate_email || 'No email')} • Score: <b>${escapeHTML(a.final_score ?? 'N/A')}</b></p>
+            ${candidateCredentialPanel(a)}
+            <div class="tag-row">
+                <span class="tag ${a.candidate_account_created ? 'success-card' : 'warning-tag'}">${a.candidate_account_created ? 'Candidate account ready' : 'Account pending'}</span>
+                <span class="tag ${a.room_code ? 'success-card' : 'warning-tag'}">${a.room_code ? 'Room: ' + escapeHTML(a.room_code) : 'Room not assigned'}</span>
+            </div>
+            <div class="hero-actions"><a class="btn small" href="/applications?job_id=${escapeHTML(a.job_id || '')}">Review / Assign Room</a><a class="btn small secondary" href="/second-round-candidates">Second Round</a></div>
+        </article>`).join('') : '<p class="empty">No confirmed shortlisted candidates yet. Use Applications → Shortlist to auto-create candidate accounts.</p>';
+    } catch { box.innerHTML = '<p class="empty">Could not load shortlisted candidate cards.</p>'; }
+}
+
 function updateStats() {
     const jobs = recruitmentJobs || [];
     document.getElementById('statJobs').textContent = jobs.length;
@@ -144,6 +175,7 @@ async function loadJobs() {
     }));
     updateStats();
     renderSelectedJob();
+    loadShortlistedCandidateCards();
 }
 
 async function submitJob(e) {

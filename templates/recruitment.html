@@ -9,6 +9,7 @@
     </div>
     <div class="hero-actions">
         <a class="btn secondary" href="/applications">Review Applications</a>
+        <a class="btn secondary" href="/second-round-candidates">Second Round</a>
         <a class="btn" href="/voice-interview">AI Voice Lab</a>
     </div>
 </section>
@@ -108,6 +109,18 @@
         </form>
         <p id="bulkMessage" class="message"></p>
     </div>
+</section>
+
+<section class="panel" id="shortlistedCandidatePanel">
+    <div class="split">
+        <div>
+            <p class="eyebrow">Shortlisted Candidate Accounts</p>
+            <h2>Confirmed Shortlist Cards</h2>
+            <p class="muted">Once HR confirms a shortlist, a candidate login is created automatically and shown here for Super User/HR follow-up.</p>
+        </div>
+        <a class="btn small secondary" href="/applications?shortlisted=1">Open Full Shortlist</a>
+    </div>
+    <div id="shortlistedCandidateCards" class="card-grid"></div>
 </section>
 
 <section class="panel" id="screeningResultsPanel" hidden>

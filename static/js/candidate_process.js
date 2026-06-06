@@ -10,12 +10,28 @@ function stepList(steps = []) {
 
 function renderCandidateOnly(data) {
     const apps = data.applications || [];
-    const interviews = data.interviews || [];
-    const rows = interviews.length ? interviews : apps;
+    const selected = apps.find(a => a.employee_created);
     document.querySelector('.page-head .hero-actions')?.setAttribute('hidden', 'hidden');
     document.getElementById('candidateApplications').closest('.panel')?.setAttribute('hidden', 'hidden');
+    if (selected) {
+        document.getElementById('candidateSummary').innerHTML = `<h2>Congratulations!</h2><p class="muted">You have been selected and your employee profile has been created.</p>`;
+        document.getElementById('candidateInterviews').innerHTML = `<article class="mini-item vertical success-card">
+            <h3>Employee Access Details</h3>
+            <p><b>Employee ID:</b> ${escapeHTML(selected.employee_code || 'Pending')}</p>
+            <p><b>Login Email:</b> ${escapeHTML(selected.employee_login_email || 'Will be shared by HR')}</p>
+            <p><b>Temporary Password:</b> ${escapeHTML(selected.employee_login_password || 'Will be shared by HR')}</p>
+            <p class="muted">Please keep these details safe. HR will complete the remaining joining formalities.</p>
+        </article>`;
+        return;
+    }
+    const interviews = data.interviews || [];
+    const rows = interviews.length ? interviews : apps;
     document.getElementById('candidateSummary').innerHTML = '<h2>Assigned Interview Steps</h2><p class="muted">Use the room link and follow the steps shared for your interview.</p>';
     document.getElementById('candidateInterviews').innerHTML = rows.length ? rows.map(item => `<article class="mini-item vertical">
+        <div class="stats-grid mini-stats compact-stats">
+            <div><span>AI Interview</span><b>${escapeHTML(item.ai_interview_scheduled_at || item.scheduled_at || 'To be scheduled')}</b></div>
+            <div><span>Personal Interview</span><b>${escapeHTML(item.personal_interview_scheduled_at || 'To be scheduled')}</b></div>
+        </div>
         ${item.join_url ? `<a class="btn small" href="${escapeHTML(item.join_url)}">Join Interview Room</a>` : '<p class="message warning">Interview room not assigned yet.</p>'}
         ${stepList(item.process_steps)}
     </article>`).join('') : '<p class="empty">No interview room assigned yet.</p>';

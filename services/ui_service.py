@@ -23,6 +23,7 @@ UI_NAV_GROUPS = [
         "items": [
             {"key": "recruitment", "label": "Recruitment", "path": "/recruitment", "icon": "✧"},
             {"key": "applications", "label": "Applications", "path": "/applications", "icon": "▤"},
+            {"key": "second_round_candidates", "label": "Second Round", "path": "/second-round-candidates", "icon": "◎"},
             {"key": "interviews", "label": "Interview Rooms", "path": "/interviews", "icon": "◌"},
             {"key": "voice_interview", "label": "Voice AI Lab", "path": "/voice-interview", "icon": "♬"},
         ],

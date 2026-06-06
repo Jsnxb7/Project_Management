@@ -10,7 +10,7 @@ function renderCredentials(creds) {
         <div class="credential-grid compact">
             <span><b>UID</b>${escapeHTML(creds.candidate_uid || 'N/A')}</span>
             <span><b>Email</b>${escapeHTML(creds.candidate_email || 'N/A')}</span>
-            <span><b>Password</b>${escapeHTML(password)}</span>
+            <span><b>Auto Password</b>${escapeHTML(password)}</span>
         </div>
     </article>`;
 }

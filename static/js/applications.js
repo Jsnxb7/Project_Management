@@ -1,4 +1,4 @@
-let shortlistedOnly = false;
+let shortlistedOnly = new URLSearchParams(window.location.search).get('shortlisted') === '1';
 let applicationJobs = [];
 let recruitmentUsers = [];
 const initialJobId = new URLSearchParams(window.location.search).get('job_id') || '';
@@ -44,8 +44,8 @@ function candidateCredentialPanel(a, compact = false) {
     if (!a.candidate_account_created) return '<p class="muted">No candidate login account yet.</p>';
     const password = a.candidate_login_password || '';
     const passwordLine = password
-        ? `<span><b>Password</b>${escapeHTML(password)}</span>`
-        : `<span><b>Password</b>${escapeHTML(a.candidate_password_note || 'Existing candidate password unchanged.')}</span>`;
+        ? `<span><b>Auto Password</b>${escapeHTML(password)}</span>`
+        : `<span><b>Auto Password</b>${escapeHTML(a.candidate_password_note || 'Existing candidate password unchanged.')}</span>`;
     return `<div class="credential-grid ${compact ? 'compact' : ''}">
         <span><b>UID</b>${escapeHTML(a.candidate_uid || 'N/A')}</span>
         <span><b>Email</b>${escapeHTML(a.candidate_login_email || a.candidate_email || 'N/A')}</span>
@@ -82,6 +82,7 @@ function appCard(a) {
             <button class="btn small secondary" onclick="quickReview('${a.id}', 'Needs Review')">Needs Review</button>
             <button class="btn small danger-btn" onclick="quickReview('${a.id}', 'Rejected')">Reject</button>
             <button class="btn small secondary" onclick="assignInterview('${a.id}')">Assign Interview</button>
+            ${a.room_code ? `<a class="btn small secondary" href="/second-round-candidates">Second Round</a>` : ''}
             <button class="btn small danger-btn" onclick="deleteReport('${a.id}')">Delete Report</button>
             <button class="btn small danger-btn" onclick="deleteApplication('${a.id}')">Delete Application</button>
         </div>
@@ -168,7 +169,9 @@ async function quickReview(id, decision) {
     const res = await fetch(`/api/recruitment/applications/${id}/review`, {method:'PATCH', headers: authHeaders(), body: JSON.stringify({decision, review_notes: `Quick action: ${decision}`})});
     const data = await res.json();
     if (!data.success && !data.warning) return toast(data.message || 'Could not update review', false, data.warning);
-    toast(data.message || `Marked as ${decision}`, data.success, data.warning);
+    const creds = data.data?.candidate_credentials;
+    const extra = creds ? ` • Candidate UID: ${creds.candidate_uid || 'N/A'}${creds.temporary_password ? ' • Temp pass: ' + creds.temporary_password : ''}` : '';
+    toast((data.message || `Marked as ${decision}`) + extra, data.success, data.warning);
     loadApplications();
 }
 
@@ -246,4 +249,5 @@ document.getElementById('jobFilter')?.addEventListener('change', loadApplication
 document.getElementById('reviewFilter')?.addEventListener('change', loadApplications);
 document.getElementById('refreshApplications')?.addEventListener('click', loadApplications);
 document.getElementById('closeReport')?.addEventListener('click', () => document.getElementById('reportPanel').hidden = true);
+if (document.getElementById('shortlistToggle')) document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only';
 Promise.all([loadJobFilter(), loadRecruitmentUsers()]).then(loadApplications);

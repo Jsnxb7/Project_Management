@@ -104,6 +104,7 @@ def create_app():
             "/payroll",
             "/performance",
             "/recruitment",
+            "/second-round-candidates",
             "/interviews",
             "/voice-interview",
             "/themes",
@@ -173,6 +174,11 @@ def create_app():
     @protected_page
     def applications_page():
         return render_template("applications.html")
+
+    @app.route("/second-round-candidates")
+    @protected_page
+    def second_round_candidates_page():
+        return render_template("second_round_candidates.html")
 
     @app.route("/voice-interview")
     @protected_page

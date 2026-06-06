@@ -19,9 +19,10 @@ from database.db import (
     interview_rooms_collection,
     interview_messages_collection,
     recruitment_candidates_collection,
+    employees_collection,
 )
 from services.ai_recruitment_service import extract_keywords, extract_resume_text, convert_resume_to_txt, screen_resume, evaluate_answer
-from services.hrms_service import role_permissions, user_role, to_object_id
+from services.hrms_service import role_permissions, user_role, to_object_id, primary_super_user_id
 from utils.response import ok, fail, warn
 
 recruitment_bp = Blueprint("recruitment_bp", __name__)
@@ -410,6 +411,21 @@ def serialize_application(app):
         "interview_mode": app.get("interview_mode"),
         "process_steps": app.get("process_steps", []),
         "requires_interview_scheduling": app.get("status") == "Shortlisted" and not app.get("room_code"),
+        "ai_interview_scheduled_at": app.get("ai_interview_scheduled_at"),
+        "ai_interview_conducted": bool(app.get("ai_interview_conducted")),
+        "ai_interview_score": app.get("ai_interview_score"),
+        "ai_interview_status": app.get("ai_interview_status") or ("Conducted" if app.get("ai_interview_conducted") else "Pending"),
+        "personal_interview_scheduled_at": app.get("personal_interview_scheduled_at"),
+        "personal_interview_conducted": bool(app.get("personal_interview_conducted")),
+        "personal_interview_status": app.get("personal_interview_status") or ("Conducted" if app.get("personal_interview_conducted") else "Pending"),
+        "personal_interviewer_user_id": str(app.get("personal_interviewer_user_id")) if app.get("personal_interviewer_user_id") else None,
+        "selection_stage": app.get("selection_stage") or "Application Review",
+        "employee_created": bool(app.get("employee_created")),
+        "employee_id": str(app.get("employee_id")) if app.get("employee_id") else None,
+        "employee_code": app.get("employee_code"),
+        "employee_login_email": app.get("employee_login_email"),
+        "employee_login_password": app.get("employee_login_password"),
+        "employee_joining_date": app.get("employee_joining_date"),
     }
 
 
@@ -799,11 +815,21 @@ def review_application(application_id):
     app = applications_collection.find_one({"_id": app_id})
     message = "Application review updated"
     payload = {"application": serialize_application(app)}
-    warning_message = None
-    if decision == "Shortlisted" and not _application_has_interview(app_id):
-        warning_message = "Shortlisted applicant still needs a candidate account, interview schedule, and assigned interview room."
-        payload["next_action"] = "schedule_interview"
-        return warn(warning_message, payload)
+    if decision == "Shortlisted":
+        candidate_user, temp_password, account_error = _ensure_candidate_user(app, user["_id"])
+        if account_error:
+            return fail(account_error, 400)
+        app = applications_collection.find_one({"_id": app_id})
+        payload["application"] = serialize_application(app)
+        payload["candidate_credentials"] = {
+            "candidate_uid": app.get("candidate_uid"),
+            "candidate_email": app.get("candidate_login_email") or app.get("candidate_email"),
+            "temporary_password": temp_password or app.get("candidate_login_password"),
+            "password_note": "Temporary password generated when candidate account was created." if (temp_password or app.get("candidate_login_password")) else "Existing candidate password unchanged.",
+        }
+        if not _application_has_interview(app_id):
+            payload["next_action"] = "schedule_interview"
+            return warn("Candidate account created. Shortlisted applicant still needs interview dates and an assigned room.", payload)
     return ok(message, payload)
 
 
@@ -946,6 +972,165 @@ def assign_interview(application_id):
     return ok("Candidate account and interview room assigned", {"session_id": str(session_id), "room_code": room_code, "join_url": f"/interview-room/{room_code}", "candidate_credentials": credential_payload, "process_steps": process_steps}, 201)
 
 
+
+
+def _room_attended(app):
+    if not app or not app.get("room_code"):
+        return False
+    if app.get("room_attended"):
+        return True
+    has_messages = interview_messages_collection.count_documents({"room_code": app.get("room_code")}, limit=1) > 0
+    return bool(has_messages)
+
+
+def _ensure_employee_code():
+    total = employees_collection.count_documents({}) + 1
+    while True:
+        code = f"EMP-{total:04d}"
+        if not employees_collection.find_one({"employee_code": code}):
+            return code
+        total += 1
+
+
+@recruitment_bp.get("/second-round-candidates")
+@jwt_required()
+def second_round_candidates():
+    user, error = require_perm("can_view_recruitment")
+    if error:
+        return error
+    perms = role_permissions(user_role(user))
+    jobs_query = {} if perms.get("is_super_user") or perms.get("can_manage_recruitment") else {"$or": [{"created_by": user["_id"]}, {"viewer_user_ids": user["_id"]}, {"controller_user_ids": user["_id"]}]}
+    visible_job_ids = [j["_id"] for j in jobs_collection.find(jobs_query, {"_id": 1})]
+    query = {
+        "job_id": {"$in": visible_job_ids},
+        "$or": [
+            {"room_code": {"$ne": None}},
+            {"status": {"$in": ["Interview Scheduled", "Selected"]}},
+            {"selection_stage": {"$in": ["Second Round", "Final Review", "Employee Created"]}},
+        ],
+    }
+    rows = list(applications_collection.find(query).sort("updated_at", -1).limit(200))
+    items = []
+    for app in rows:
+        item = serialize_application(app)
+        item["room_attended"] = _room_attended(app)
+        item["second_round_ready"] = bool(item["room_attended"] or app.get("selection_stage") in {"Second Round", "Final Review", "Employee Created"})
+        items.append(item)
+    return ok("Second round candidates fetched", {"candidates": items})
+
+
+@recruitment_bp.patch("/applications/<application_id>/schedule-rounds")
+@jwt_required()
+def schedule_candidate_rounds(application_id):
+    user, error = require_perm("can_assign_interviewers")
+    if error:
+        return error
+    app_id = to_object_id(application_id)
+    app = applications_collection.find_one({"_id": app_id}) if app_id else None
+    if not app:
+        return fail("Application not found", 404)
+    job = jobs_collection.find_one({"_id": app.get("job_id")})
+    if not job or not _can_control_job(user, job):
+        return fail("You cannot schedule interviews for this candidate", 403)
+    data = request.get_json() or {}
+    updates = {"updated_at": now(), "selection_stage": data.get("selection_stage") or app.get("selection_stage") or "Second Round"}
+    for field in ["ai_interview_scheduled_at", "personal_interview_scheduled_at"]:
+        if field in data:
+            updates[field] = data.get(field)
+    if "ai_interview_conducted" in data:
+        updates["ai_interview_conducted"] = bool(data.get("ai_interview_conducted"))
+        updates["ai_interview_status"] = "Conducted" if updates["ai_interview_conducted"] else "Pending"
+    if "ai_interview_score" in data:
+        updates["ai_interview_score"] = data.get("ai_interview_score")
+    if "personal_interview_conducted" in data:
+        updates["personal_interview_conducted"] = bool(data.get("personal_interview_conducted"))
+        updates["personal_interview_status"] = "Conducted" if updates["personal_interview_conducted"] else "Pending"
+    if data.get("personal_interviewer_user_id"):
+        updates["personal_interviewer_user_id"] = to_object_id(data.get("personal_interviewer_user_id")) or user["_id"]
+    if "personal_interview_notes" in data:
+        updates["personal_interview_notes"] = (data.get("personal_interview_notes") or "").strip()
+    applications_collection.update_one({"_id": app_id}, {"$set": updates})
+    return ok("Interview schedule placeholders updated", {"application": serialize_application(applications_collection.find_one({"_id": app_id}))})
+
+
+@recruitment_bp.post("/applications/<application_id>/create-employee")
+@jwt_required()
+def create_employee_from_candidate(application_id):
+    user, error = require_perm("can_manage_employees")
+    if error:
+        return error
+    app_id = to_object_id(application_id)
+    app = applications_collection.find_one({"_id": app_id}) if app_id else None
+    if not app:
+        return fail("Application not found", 404)
+    job = jobs_collection.find_one({"_id": app.get("job_id")})
+    if not job or not _can_control_job(user, job):
+        return fail("You cannot select this candidate as employee", 403)
+    data = request.get_json() or {}
+    candidate_user, temp_password, account_error = _ensure_candidate_user(app, user["_id"])
+    if account_error:
+        return fail(account_error, 400)
+    app = applications_collection.find_one({"_id": app_id}) or app
+    employee_code = (data.get("employee_code") or app.get("employee_code") or _ensure_employee_code()).strip()
+    existing_employee = employees_collection.find_one({"$or": [{"user_id": candidate_user["_id"]}, {"email": candidate_user.get("email")}]})
+    manager_ids = _parse_user_ids(data.get("manager_ids") or [])
+    if not manager_ids:
+        manager_id = to_object_id(data.get("manager_id")) or primary_super_user_id(exclude_user_id=candidate_user["_id"])
+        manager_ids = [manager_id] if manager_id else []
+    manager_id = manager_ids[0] if manager_ids else None
+    employee_login_password = data.get("employee_login_password") or _generate_candidate_password()
+    now_value = now()
+    employee_doc = {
+        "user_id": candidate_user["_id"],
+        "employee_code": employee_code,
+        "name": (data.get("name") or app.get("candidate_name") or candidate_user.get("name") or "Employee").strip(),
+        "email": (data.get("email") or candidate_user.get("email") or app.get("candidate_email") or "").strip().lower(),
+        "phone": (data.get("phone") or app.get("phone") or "").strip(),
+        "department": (data.get("department") or job.get("department") or "Unassigned").strip(),
+        "designation": (data.get("designation") or job.get("title") or "Employee").strip(),
+        "joining_date": data.get("joining_date") or now_value,
+        "employment_status": data.get("employment_status") or "Active",
+        "manager_id": manager_id,
+        "manager_ids": manager_ids,
+        "manager_status": "assigned" if manager_ids else "missing",
+        "documents": data.get("documents") or [],
+        "salary": data.get("salary") or {},
+        "work_history": data.get("work_history") or [{"title": "Converted from recruitment", "application_id": app_id, "at": now_value}],
+        "source": "Recruitment Selection",
+        "candidate_application_id": app_id,
+        "created_by": user["_id"],
+        "updated_at": now_value,
+    }
+    if existing_employee:
+        employee_doc["created_at"] = existing_employee.get("created_at") or now_value
+        employees_collection.update_one({"_id": existing_employee["_id"]}, {"$set": employee_doc})
+        employee_id = existing_employee["_id"]
+    else:
+        employee_doc["created_at"] = now_value
+        result = employees_collection.insert_one(employee_doc)
+        employee_id = result.inserted_id
+    users_collection.update_one({"_id": candidate_user["_id"]}, {"$set": {
+        "employee_id": employee_id,
+        "employee_code": employee_code,
+        "employee_login_email": employee_doc["email"],
+        "employee_temp_password": employee_login_password,
+        "candidate_selected": True,
+        "updated_at": now_value,
+    }})
+    applications_collection.update_one({"_id": app_id}, {"$set": {
+        "status": "Selected",
+        "review_status": "Selected",
+        "selection_stage": "Employee Created",
+        "employee_created": True,
+        "employee_id": employee_id,
+        "employee_code": employee_code,
+        "employee_login_email": employee_doc["email"],
+        "employee_login_password": employee_login_password,
+        "employee_joining_date": employee_doc["joining_date"],
+        "updated_at": now_value,
+    }})
+    return ok("Candidate selected and employee profile created", {"application": serialize_application(applications_collection.find_one({"_id": app_id})), "employee_id": str(employee_id), "employee_code": employee_code, "employee_login_email": employee_doc["email"], "employee_login_password": employee_login_password}, 201)
+
 @recruitment_bp.get("/interviews")
 @jwt_required()
 def list_interviews():
@@ -973,9 +1158,10 @@ def candidate_process():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    if user_role(user) != "Candidate" and not role_permissions(user_role(user)).get("is_super_user"):
+    has_candidate_link = bool(user.get("candidate_application_ids") or user.get("candidate_uid") or user.get("candidate_selected"))
+    if user_role(user) != "Candidate" and not role_permissions(user_role(user)).get("is_super_user") and not has_candidate_link:
         return fail("This page is only for candidate accounts", 403)
-    is_candidate = user_role(user) == "Candidate"
+    is_candidate = user_role(user) == "Candidate" or has_candidate_link
     query = {"candidate_user_id": user["_id"]}
     if user.get("email"):
         query = {"$or": [{"candidate_user_id": user["_id"]}, {"candidate_email": user.get("email")}]}
@@ -994,6 +1180,15 @@ def candidate_process():
                 "scheduled_at": a.get("scheduled_at"),
                 "interview_mode": a.get("interview_mode"),
                 "process_steps": a.get("process_steps", []),
+                "status": a.get("status"),
+                "ai_interview_scheduled_at": a.get("ai_interview_scheduled_at"),
+                "ai_interview_conducted": bool(a.get("ai_interview_conducted")),
+                "personal_interview_scheduled_at": a.get("personal_interview_scheduled_at"),
+                "personal_interview_conducted": bool(a.get("personal_interview_conducted")),
+                "employee_created": bool(a.get("employee_created")),
+                "employee_code": a.get("employee_code"),
+                "employee_login_email": a.get("employee_login_email"),
+                "employee_login_password": a.get("employee_login_password"),
             } for a in apps],
             "interviews": [{
                 "id": str(r["_id"]),
