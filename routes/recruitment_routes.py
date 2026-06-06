@@ -40,6 +40,15 @@ def current_user():
     return users_collection.find_one({"_id": user_id, "is_active": True}) if user_id else None
 
 
+def optional_current_user():
+    try:
+        identity = get_jwt_identity()
+    except Exception:
+        identity = None
+    user_id = to_object_id(identity)
+    return users_collection.find_one({"_id": user_id, "is_active": True}) if user_id else None
+
+
 def require_perm(name):
     user = current_user()
     if not user:
@@ -182,15 +191,21 @@ def _ensure_candidate_user(app_doc, created_by=None):
         upsert=True,
     )
 
+    app_updates = {
+        "candidate_user_id": user["_id"],
+        "candidate_uid": user.get("candidate_uid") or candidate_uid,
+        "candidate_login_email": user.get("email") or email,
+        "candidate_account_created": True,
+        "candidate_account_created_at": now_value,
+        "updated_at": now_value,
+    }
+    if temp_password:
+        app_updates["candidate_login_password"] = temp_password
+        app_updates["candidate_password_note"] = "Temporary password generated when the candidate account was created."
+
     applications_collection.update_one(
         {"_id": app_doc["_id"]},
-        {"$set": {
-            "candidate_user_id": user["_id"],
-            "candidate_uid": user.get("candidate_uid") or candidate_uid,
-            "candidate_account_created": True,
-            "candidate_account_created_at": now_value,
-            "updated_at": now_value,
-        }}
+        {"$set": app_updates}
     )
     return user, temp_password, None
 
@@ -385,6 +400,9 @@ def serialize_application(app):
         "created_at": _serialize_dt(app.get("created_at")),
         "reviewed_at": _serialize_dt(app.get("reviewed_at")),
         "candidate_uid": app.get("candidate_uid"),
+        "candidate_login_email": app.get("candidate_login_email") or app.get("candidate_email"),
+        "candidate_login_password": app.get("candidate_login_password"),
+        "candidate_password_note": app.get("candidate_password_note") or ("Existing candidate password unchanged." if app.get("candidate_account_created") and not app.get("candidate_login_password") else None),
         "candidate_user_id": str(app.get("candidate_user_id")) if app.get("candidate_user_id") else None,
         "candidate_account_created": bool(app.get("candidate_account_created")),
         "room_code": app.get("room_code"),
@@ -863,6 +881,9 @@ def assign_interview(application_id):
     candidate_user, temp_password, account_error = _ensure_candidate_user(app, user["_id"])
     if account_error:
         return fail(account_error, 400)
+    app = applications_collection.find_one({"_id": app["_id"]}) or app
+    login_password = temp_password or app.get("candidate_login_password")
+    login_email = candidate_user.get("email") or app.get("candidate_email")
 
     existing = interview_sessions_collection.find_one({"application_id": app["_id"], "status": {"$ne": "Cancelled"}})
     session = {
@@ -872,6 +893,9 @@ def assign_interview(application_id):
         "candidate_email": app.get("candidate_email"),
         "candidate_user_id": candidate_user["_id"],
         "candidate_uid": candidate_user.get("candidate_uid"),
+        "candidate_login_email": login_email,
+        "candidate_login_password": login_password,
+        "candidate_password_note": "Temporary password generated when the candidate account was created." if login_password else "Existing candidate password unchanged.",
         "interviewer_user_id": interviewer_id,
         "panel_user_ids": panel_ids,
         "mode": mode,
@@ -901,6 +925,9 @@ def assign_interview(application_id):
         "review_status": "Interview Scheduled",
         "candidate_user_id": candidate_user["_id"],
         "candidate_uid": candidate_user.get("candidate_uid"),
+        "candidate_login_email": login_email,
+        "candidate_login_password": login_password,
+        "candidate_password_note": "Temporary password generated when the candidate account was created." if login_password else "Existing candidate password unchanged.",
         "candidate_account_created": True,
         "interviewer_user_id": interviewer_id,
         "panel_user_ids": panel_ids,
@@ -912,9 +939,9 @@ def assign_interview(application_id):
     }})
     credential_payload = {
         "candidate_uid": candidate_user.get("candidate_uid"),
-        "candidate_email": candidate_user.get("email"),
-        "temporary_password": temp_password,
-        "password_note": "Temporary password is returned only when a new candidate account is created. Existing candidate accounts keep their current password.",
+        "candidate_email": login_email,
+        "temporary_password": login_password,
+        "password_note": "Temporary password generated when the candidate account was created." if login_password else "Existing candidate password unchanged.",
     }
     return ok("Candidate account and interview room assigned", {"session_id": str(session_id), "room_code": room_code, "join_url": f"/interview-room/{room_code}", "candidate_credentials": credential_payload, "process_steps": process_steps}, 201)
 
@@ -948,6 +975,7 @@ def candidate_process():
         return fail("User not found", 404)
     if user_role(user) != "Candidate" and not role_permissions(user_role(user)).get("is_super_user"):
         return fail("This page is only for candidate accounts", 403)
+    is_candidate = user_role(user) == "Candidate"
     query = {"candidate_user_id": user["_id"]}
     if user.get("email"):
         query = {"$or": [{"candidate_user_id": user["_id"]}, {"candidate_email": user.get("email")}]}
@@ -955,7 +983,29 @@ def candidate_process():
     job_ids = [a.get("job_id") for a in apps if a.get("job_id")]
     jobs = {j["_id"]: j for j in jobs_collection.find({"_id": {"$in": job_ids}})} if job_ids else {}
     sessions = list(interview_sessions_collection.find({"$or": [{"candidate_user_id": user["_id"]}, {"candidate_email": user.get("email")}]}).sort("created_at", -1).limit(20))
+    if is_candidate:
+        return ok("Candidate process fetched", {
+            "candidate_view": True,
+            "applications": [{
+                "id": str(a["_id"]),
+                "job_title": a.get("job_title") or (jobs.get(a.get("job_id")) or {}).get("title"),
+                "room_code": a.get("room_code"),
+                "join_url": f"/interview-room/{a.get('room_code')}" if a.get("room_code") else None,
+                "scheduled_at": a.get("scheduled_at"),
+                "interview_mode": a.get("interview_mode"),
+                "process_steps": a.get("process_steps", []),
+            } for a in apps],
+            "interviews": [{
+                "id": str(r["_id"]),
+                "room_code": r.get("room_code"),
+                "join_url": f"/interview-room/{r.get('room_code')}",
+                "scheduled_at": r.get("scheduled_at"),
+                "mode": r.get("mode"),
+                "process_steps": r.get("process_steps", []),
+            } for r in sessions],
+        })
     return ok("Candidate process fetched", {
+        "candidate_view": False,
         "candidate": {"name": user.get("name"), "email": user.get("email"), "candidate_uid": user.get("candidate_uid")},
         "applications": [{**serialize_application(a), "job": serialize_job(jobs.get(a.get("job_id")), user=user) if jobs.get(a.get("job_id")) else None} for a in apps],
         "interviews": [{"id": str(r["_id"]), "room_code": r.get("room_code"), "join_url": f"/interview-room/{r.get('room_code')}", "scheduled_at": r.get("scheduled_at"), "status": r.get("status"), "mode": r.get("mode"), "process_steps": r.get("process_steps", [])} for r in sessions],
@@ -971,11 +1021,33 @@ def room_details(room_code):
     session = interview_sessions_collection.find_one({"_id": room.get("session_id")}) or {}
     app = applications_collection.find_one({"_id": session.get("application_id")}) if session.get("application_id") else None
     job = jobs_collection.find_one({"_id": session.get("job_id")}) if session.get("job_id") else None
+    viewer = optional_current_user()
+    viewer_role = user_role(viewer) if viewer else "Guest"
+    viewer_is_candidate = viewer_role == "Candidate"
+    can_view_credentials = bool(viewer and job and not viewer_is_candidate and _can_view_job(viewer, job))
+    session_payload = {
+        "candidate_name": session.get("candidate_name"),
+        "candidate_email": None if viewer_is_candidate else session.get("candidate_email"),
+        "candidate_uid": None if viewer_is_candidate else session.get("candidate_uid"),
+        "mode": session.get("mode"),
+        "status": session.get("status"),
+        "scheduled_at": session.get("scheduled_at"),
+        "process_steps": session.get("process_steps", []),
+    }
+    if can_view_credentials:
+        session_payload["candidate_credentials"] = {
+            "candidate_uid": session.get("candidate_uid") or (app or {}).get("candidate_uid"),
+            "candidate_email": session.get("candidate_login_email") or session.get("candidate_email") or (app or {}).get("candidate_login_email") or (app or {}).get("candidate_email"),
+            "temporary_password": session.get("candidate_login_password") or (app or {}).get("candidate_login_password"),
+            "password_note": session.get("candidate_password_note") or (app or {}).get("candidate_password_note") or "Existing candidate password unchanged.",
+        }
     return ok("Interview room details fetched", {
         "room": {"room_code": room_code, "status": room.get("status"), "participants": room.get("participants", [])},
-        "session": {"candidate_name": session.get("candidate_name"), "candidate_email": session.get("candidate_email"), "candidate_uid": session.get("candidate_uid"), "mode": session.get("mode"), "status": session.get("status"), "scheduled_at": session.get("scheduled_at"), "process_steps": session.get("process_steps", [])},
-        "application": serialize_application(app) if app else None,
-        "job": serialize_job(job) if job else None,
+        "session": session_payload,
+        "application": None if viewer_is_candidate else (serialize_application(app) if app else None),
+        "job": None if viewer_is_candidate else (serialize_job(job) if job else None),
+        "viewer_role": viewer_role,
+        "candidate_view": viewer_is_candidate,
     })
 
 

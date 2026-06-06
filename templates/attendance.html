@@ -98,11 +98,11 @@
     </div>
     <div class="panel">
         <div class="section-title split"><h2>Correction Requests</h2><span class="muted" id="correctionSummary">--</span></div>
-        <form id="correctionForm" class="stack-form compact-form">
-            <input name="date" type="date" required>
-            <input name="requested_check_in" type="datetime-local" placeholder="Requested check-in">
-            <input name="requested_check_out" type="datetime-local" placeholder="Requested check-out">
-            <input name="reason" placeholder="Reason">
+        <form id="correctionForm" class="stack-form compact-form labelled-form">
+            <label class="field-shell">Correction Date<input name="date" type="date" required><small class="field-help">Choose the attendance date that needs correction.</small></label>
+            <label class="field-shell">Requested Check-in<input name="requested_check_in" type="datetime-local" placeholder="Requested check-in"><small class="field-help">Use this if check-in was missed or recorded incorrectly.</small></label>
+            <label class="field-shell">Requested Checkout<input name="requested_check_out" type="datetime-local" placeholder="Requested checkout"><small class="field-help">Use this if checkout was missed or recorded incorrectly.</small></label>
+            <label class="field-shell">Correction Reason<input name="reason" placeholder="Reason"><small class="field-help">Give a short reason for manager review.</small></label>
             <button class="btn secondary" type="submit">Request Correction</button>
         </form>
         <div id="correctionList" class="mini-list"></div>
@@ -127,11 +127,11 @@
     </div>
     <div class="panel">
         <div class="section-title split"><h2>Attendance Meetings</h2><span class="muted" id="meetingSummary">--</span></div>
-        <form id="meetingForm" class="stack-form compact-form">
-            <select name="employee_id" id="meetingEmployeeSelect" required><option value="">Select employee</option></select>
-            <input name="meeting_date" type="date" required>
-            <input name="meeting_time" type="time" required>
-            <input name="reason" placeholder="Meeting reason">
+        <form id="meetingForm" class="stack-form compact-form labelled-form">
+            <label class="field-shell">Employee<select name="employee_id" id="meetingEmployeeSelect" required><option value="">Select employee</option></select><small class="field-help">Only assigned/scoped employees appear here.</small></label>
+            <label class="field-shell">Meeting Date<input name="meeting_date" type="date" required></label>
+            <label class="field-shell">Meeting Time<input name="meeting_time" type="time" required></label>
+            <label class="field-shell">Meeting Reason<input name="reason" placeholder="Meeting reason"><small class="field-help">Example: repeated late check-ins, missed checkout, or leave clarification.</small></label>
             <button class="btn secondary" type="submit">Schedule Meeting</button>
         </form>
         <div id="meetingList" class="mini-list"></div>
@@ -140,15 +140,15 @@
 
 <section class="panel super-only" id="attendanceRulesPanel" hidden>
     <div class="section-title split"><h2>Attendance Rules</h2><p class="muted">Super User configuration. These rules drive soft tags, absent marking, overtime, and calendar labels.</p></div>
-    <form id="rulesForm" class="rules-grid">
-        <label>Office Start<input name="start_time" type="time"></label>
-        <label>Late After<input name="late_after" type="time"></label>
-        <label>Office End<input name="end_time" type="time"></label>
-        <label>Full Day Minutes<input name="minimum_full_day_minutes" type="number"></label>
-        <label>Half Day Minutes<input name="minimum_half_day_minutes" type="number"></label>
-        <label>Overtime After Minutes<input name="overtime_after_minutes" type="number"></label>
-        <label>Working Days<input name="working_days" placeholder="mon,tue,wed,thu,fri"></label>
-        <label>Holidays<input name="holidays" placeholder="YYYY-MM-DD,YYYY-MM-DD"></label>
+    <form id="rulesForm" class="rules-grid labelled-form">
+        <label class="field-shell">Office Start Time<input name="start_time" type="time"><small class="field-help">Normal workday start time.</small></label>
+        <label class="field-shell">Late After Time<input name="late_after" type="time"><small class="field-help">Check-ins after this time are soft-tagged late.</small></label>
+        <label class="field-shell">Office End Time<input name="end_time" type="time"><small class="field-help">Expected end of the workday.</small></label>
+        <label class="field-shell">Full Day Minutes<input name="minimum_full_day_minutes" type="number"><small class="field-help">Minimum minutes required for full-day attendance.</small></label>
+        <label class="field-shell">Half Day Minutes<input name="minimum_half_day_minutes" type="number"><small class="field-help">Minimum minutes required before half-day status.</small></label>
+        <label class="field-shell">Overtime After Minutes<input name="overtime_after_minutes" type="number"><small class="field-help">Worked minutes after this threshold can be tagged overtime.</small></label>
+        <label class="field-shell">Working Days<input name="working_days" placeholder="mon,tue,wed,thu,fri"><small class="field-help">Comma-separated day keys.</small></label>
+        <label class="field-shell">Holiday Dates<input name="holidays" placeholder="YYYY-MM-DD,YYYY-MM-DD"><small class="field-help">Comma-separated holiday dates exempt from absence.</small></label>
         <button class="btn" type="submit">Save Rules</button>
     </form>
 </section>

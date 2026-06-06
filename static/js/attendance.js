@@ -25,6 +25,12 @@ function canManagePanels() {
 }
 function isSuperUser() { return roleName() === "Super User"; }
 function canReviewSelected() { return canManagePanels(); }
+function canReviewRecord(record) {
+    if (isSuperUser()) return true;
+    const me = safeUser();
+    const myId = String(me?.id || me?._id || "");
+    return Boolean(myId && (record.manager_ids || []).map(String).includes(myId));
+}
 
 function localDate(value) {
     if (!value) return null;
@@ -91,7 +97,17 @@ function setLoading(isLoading) {
 async function api(path, options = {}) {
     try {
         const res = await fetch(path, { headers: tokenHeaders(), ...options });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch {
+            const message = res.status === 401
+                ? "Your session expired. Please log in again."
+                : `Server returned ${res.status || "an"} HTML/error response instead of JSON.`;
+            toast(message, false);
+            return { success: false, message };
+        }
         if (!data.success && !data.warning) toast(data.message || "Request failed", false);
         if (data.warning) toast(data.message || "Please review", false, true);
         return data;
@@ -246,7 +262,7 @@ function renderSelectedDay() {
             <p><b>Check-in:</b> ${fmtTime(r.check_in)} &nbsp; <b>Checkout:</b> ${fmtTime(r.check_out)}</p>
             <p><b>Worked:</b> ${worked(r.worked_minutes)} &nbsp; <b>Manager status:</b> ${escapeHTML(readable(r.manager_status || "normal"))}</p>
             <div class="tag-row">${badgeTags([...(r.soft_tags || []), ...(r.hard_tags || [])]) || `<span class="pill neutral">No tags</span>`}</div>
-            ${canReviewSelected() && r.id ? `<div class="action-row detail-actions"><button class="btn tiny" data-review-id="${r.id}" data-review-action="confirm_present">Confirm Present</button><button class="btn tiny secondary" data-review-id="${r.id}" data-review-action="excuse_late">Excuse</button><button class="btn tiny danger" data-review-id="${r.id}" data-review-action="confirm_absent">Confirm Absent</button></div>` : ""}
+            ${canReviewRecord(r) && r.id ? `<div class="action-row detail-actions"><button class="btn tiny" data-review-id="${r.id}" data-review-action="confirm_present">Confirm Present</button><button class="btn tiny secondary" data-review-id="${r.id}" data-review-action="excuse_late">Excuse</button><button class="btn tiny danger" data-review-id="${r.id}" data-review-action="confirm_absent">Confirm Absent</button><button class="btn tiny secondary" data-edit-time-id="${r.id}" data-current-in="${escapeHTML(r.check_in || "")}" data-current-out="${escapeHTML(r.check_out || "")}">Edit Times</button><button class="btn tiny danger" data-reset-time-id="${r.id}">Reset Times</button></div>` : ""}
         </div>`).join("");
     const leaveHtml = leaves.map(l => `
         <div class="detail-card leave">
@@ -317,12 +333,12 @@ async function loadAttendance() {
     setLoading(false);
 }
 async function checkIn() {
-    const data = await api("/api/hrms/attendance/check-in", { method: "POST", body: JSON.stringify({ check_in: new Date().toISOString() }) });
+    const data = await api("/api/hrms/attendance/check-in", { method: "POST", body: JSON.stringify({}) });
     toast(data.message || "Check-in updated", data.success, data.warning);
     if (data.success || data.warning) loadAttendance();
 }
 async function checkOut() {
-    const data = await api("/api/hrms/attendance/check-out", { method: "POST", body: JSON.stringify({ check_out: new Date().toISOString() }) });
+    const data = await api("/api/hrms/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
     toast(data.message || "Checkout updated", data.success, data.warning);
     if (data.success || data.warning) loadAttendance();
 }
@@ -368,7 +384,7 @@ async function loadTeamData() {
     if (teamBox) teamBox.innerHTML = state.team.map(e => {
         const log = todayByEmployee[e.id];
         const cls = tagClass(log?.soft_tags || [], log?.status || "");
-        return `<div class="mini-item team-row"><span><strong>${escapeHTML(e.name || e.email)}</strong><br>${escapeHTML(e.department || "Unassigned")} · ${escapeHTML(e.designation || "")}</span><span class="action-row"><span class="pill ${cls}">${escapeHTML(readable(log?.status || "no log"))}</span><button class="btn tiny" data-view-employee="${e.id}">Calendar</button><a class="btn tiny secondary" href="/messages?employee=${e.id}">Message</a></span></div>`;
+        return `<div class="mini-item team-row"><label class="check-row"><input type="checkbox" class="team-user-check" value="${e.id}"> <span><strong>${escapeHTML(e.name || e.email)}</strong><br>${escapeHTML(e.department || "Unassigned")} · ${escapeHTML(e.designation || "")}</span></label><span class="action-row"><span class="pill ${cls}">${escapeHTML(readable(log?.status || "no log"))}</span><button class="btn tiny" data-view-employee="${e.id}">Calendar</button><a class="btn tiny secondary" href="/messages?employee=${e.id}">Message</a></span></div>`;
     }).join("") || `<div class="mini-item"><span>No team employees found</span></div>`;
     renderLeaveApprovals(data.data.pending_leaves || []);
     renderReviews(data.data.pending_reviews || []);
@@ -387,7 +403,7 @@ function renderLeaveApprovals(leaves) {
     const box = document.getElementById("leaveApprovalList");
     setText("leaveApprovalSummary", `${leaves.length} pending`);
     if (!box) return;
-    box.innerHTML = leaves.map(l => `<div class="mini-item clickable-row" data-leave-date="${escapeHTML(l.start_date)}"><span><strong>${escapeHTML(l.employee_name)}</strong><br>${escapeHTML(readable(l.leave_type))}: ${escapeHTML(l.start_date)} to ${escapeHTML(l.end_date)}<br>${escapeHTML(l.reason || "")}</span><span class="action-row"><button class="btn tiny" data-leave-id="${l.id}" data-leave-action="approve">Approve</button><button class="btn tiny danger" data-leave-id="${l.id}" data-leave-action="reject">Reject</button></span></div>`).join("") || `<div class="mini-item"><span>No pending leave approvals</span></div>`;
+    box.innerHTML = leaves.map(l => `<div class="mini-item clickable-row" data-leave-date="${escapeHTML(l.start_date)}"><label class="check-row"><input type="checkbox" class="leave-check" value="${l.id}"> <span><strong>${escapeHTML(l.employee_name)}</strong><br>${escapeHTML(readable(l.leave_type))}: ${escapeHTML(l.start_date)} to ${escapeHTML(l.end_date)}<br>${escapeHTML(l.reason || "")}</span></label><span class="action-row"><button class="btn tiny" data-leave-id="${l.id}" data-leave-action="approve">Approve</button><button class="btn tiny danger" data-leave-id="${l.id}" data-leave-action="reject">Reject</button></span></div>`).join("") || `<div class="mini-item"><span>No pending leave approvals</span></div>`;
 }
 async function reviewLeave(id, action) {
     const note = prompt("Manager note", "") || "";
@@ -399,13 +415,38 @@ function renderReviews(rows) {
     const box = document.getElementById("attendanceReviewList");
     setText("reviewSummary", `${rows.length} pending`);
     if (!box) return;
-    box.innerHTML = rows.map(r => `<div class="mini-item clickable-row" data-record-date="${escapeHTML(r.date)}"><span><strong>${escapeHTML(r.employee_name)}</strong><br>${escapeHTML(r.date)} · ${badgeTags(r.soft_tags)}<br>${escapeHTML(readable(r.status))}</span><span class="action-row"><button class="btn tiny" data-review-id="${r.id}" data-review-action="confirm_present">Confirm</button><button class="btn tiny secondary" data-review-id="${r.id}" data-review-action="excuse_late">Excuse</button><button class="btn tiny danger" data-review-id="${r.id}" data-review-action="confirm_absent">Absent</button></span></div>`).join("") || `<div class="mini-item"><span>No pending abnormality reviews</span></div>`;
+    const actionable = rows.filter(canReviewRecord);
+    box.innerHTML = actionable.map(r => `<div class="mini-item clickable-row" data-record-date="${escapeHTML(r.date)}"><label class="check-row"><input type="checkbox" class="review-check" value="${r.id}"> <span><strong>${escapeHTML(r.employee_name)}</strong><br>${escapeHTML(r.date)} · ${badgeTags(r.soft_tags)}<br>${escapeHTML(readable(r.status))}</span></label><span class="action-row"><button class="btn tiny" data-review-id="${r.id}" data-review-action="confirm_present">Confirm</button><button class="btn tiny secondary" data-review-id="${r.id}" data-review-action="excuse_late">Excuse</button><button class="btn tiny danger" data-review-id="${r.id}" data-review-action="confirm_absent">Absent</button><button class="btn tiny secondary" data-edit-time-id="${r.id}" data-current-in="${escapeHTML(r.check_in || "")}" data-current-out="${escapeHTML(r.check_out || "")}">Edit Times</button></span></div>`).join("") || `<div class="mini-item"><span>No pending abnormality reviews for your assigned employees</span></div>`;
 }
 async function reviewAttendance(id, action) {
     const note = prompt("Review note", "") || "";
     const endpoint = action.startsWith("excuse") ? "excuse" : "confirm";
     const data = await api(`/api/hrms/attendance/${id}/${endpoint}`, { method: "POST", body: JSON.stringify({ action, note }) });
     toast(data.message || "Review updated", data.success, data.warning);
+    if (data.success || data.warning) loadAttendance();
+}
+
+function toDatetimeLocal(value) {
+    const d = localDate(value);
+    if (!d) return "";
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+async function editAttendanceTimes(id, currentIn, currentOut) {
+    const checkIn = prompt("Check-in time (YYYY-MM-DDTHH:mm). Leave blank to clear.", toDatetimeLocal(currentIn));
+    if (checkIn === null) return;
+    const checkOut = prompt("Checkout time (YYYY-MM-DDTHH:mm). Leave blank to clear.", toDatetimeLocal(currentOut));
+    if (checkOut === null) return;
+    const note = prompt("Reason for time change", "Manager adjusted attendance time") || "Manager adjusted attendance time";
+    const data = await api(`/api/hrms/attendance/${id}/override`, { method: "POST", body: JSON.stringify({ action: "confirm_present", note, overrides: { check_in: checkIn, check_out: checkOut } }) });
+    toast(data.message || "Attendance times updated", data.success, data.warning);
+    if (data.success || data.warning) loadAttendance();
+}
+async function resetAttendanceTimes(id) {
+    if (!confirm("Reset both check-in and checkout for this attendance record?")) return;
+    const note = prompt("Reason for reset", "Manager reset attendance times") || "Manager reset attendance times";
+    const data = await api(`/api/hrms/attendance/${id}/override`, { method: "POST", body: JSON.stringify({ action: "confirm_absent", note, overrides: { check_in: "", check_out: "" } }) });
+    toast(data.message || "Attendance times reset", data.success, data.warning);
     if (data.success || data.warning) loadAttendance();
 }
 
@@ -468,6 +509,38 @@ async function repairManagers() {
     if (data.success || data.warning) loadAttendance();
 }
 
+
+function checkedValues(selector) { return Array.from(document.querySelectorAll(selector + ":checked")).map(el => el.value); }
+async function bulkReviewAttendance(action) {
+    const ids = checkedValues(".review-check");
+    if (!ids.length) return toast("Select at least one anomaly first", false, true);
+    const note = prompt("Bulk review note", "Bulk manager review") || "Bulk manager review";
+    const data = await api("/api/hrms/attendance/bulk-review", { method: "POST", body: JSON.stringify({ attendance_ids: ids, action, note }) });
+    toast(`${data.data?.updated_count || 0} attendance record(s) updated`, data.success, data.warning);
+    if (data.success || data.warning) loadAttendance();
+}
+async function bulkReviewLeaves(action) {
+    const ids = checkedValues(".leave-check");
+    if (!ids.length) return toast("Select at least one leave request first", false, true);
+    const note = prompt("Bulk leave note", "Bulk leave review") || "Bulk leave review";
+    const data = await api("/api/hrms/leave/bulk-review", { method: "POST", body: JSON.stringify({ leave_ids: ids, action, note }) });
+    toast(`${data.data?.updated_count || 0} leave request(s) updated`, data.success, data.warning);
+    if (data.success || data.warning) loadAttendance();
+}
+async function bulkScheduleMeetings() {
+    const ids = checkedValues(".team-user-check");
+    if (!ids.length) return toast("Select at least one team user first", false, true);
+    const form = document.getElementById("meetingForm");
+    const payload = form ? Object.fromEntries(new FormData(form).entries()) : {};
+    payload.employee_ids = ids;
+    payload.meeting_date = payload.meeting_date || state.selectedDate || todayKey();
+    payload.meeting_time = payload.meeting_time || "10:00";
+    payload.reason = payload.reason || "Attendance follow-up";
+    const data = await api("/api/hrms/attendance/meeting/bulk", { method: "POST", body: JSON.stringify(payload) });
+    toast(`${data.data?.created_count || 0} meeting(s) scheduled`, data.success, data.warning);
+    if (data.success || data.warning) loadMeetings();
+}
+
 function initAttendancePage() {
     const params = new URLSearchParams(window.location.search);
     const employeeParam = params.get("employee");
@@ -489,6 +562,12 @@ function initAttendancePage() {
     document.getElementById("correctionForm")?.addEventListener("submit", submitCorrection);
     document.getElementById("rulesForm")?.addEventListener("submit", saveRules);
     document.getElementById("repairManagersBtn")?.addEventListener("click", repairManagers);
+    document.getElementById("bulkConfirmReviewsBtn")?.addEventListener("click", () => bulkReviewAttendance("confirm_present"));
+    document.getElementById("bulkExcuseReviewsBtn")?.addEventListener("click", () => bulkReviewAttendance("excuse_late"));
+    document.getElementById("bulkAbsentReviewsBtn")?.addEventListener("click", () => bulkReviewAttendance("confirm_absent"));
+    document.getElementById("bulkApproveLeavesBtn")?.addEventListener("click", () => bulkReviewLeaves("approve"));
+    document.getElementById("bulkRejectLeavesBtn")?.addEventListener("click", () => bulkReviewLeaves("reject"));
+    document.getElementById("bulkMeetingBtn")?.addEventListener("click", bulkScheduleMeetings);
     document.getElementById("requestLeaveForSelectedBtn")?.addEventListener("click", prefillLeaveFromSelected);
     document.getElementById("requestCorrectionForSelectedBtn")?.addEventListener("click", prefillCorrectionFromSelected);
     document.getElementById("scheduleMeetingForSelectedBtn")?.addEventListener("click", prefillMeetingFromSelected);
@@ -502,6 +581,10 @@ function initAttendancePage() {
         if (leaveBtn) reviewLeave(leaveBtn.dataset.leaveId, leaveBtn.dataset.leaveAction);
         const reviewBtn = e.target.closest("[data-review-id][data-review-action]");
         if (reviewBtn) reviewAttendance(reviewBtn.dataset.reviewId, reviewBtn.dataset.reviewAction);
+        const editBtn = e.target.closest("[data-edit-time-id]");
+        if (editBtn) editAttendanceTimes(editBtn.dataset.editTimeId, editBtn.dataset.currentIn, editBtn.dataset.currentOut);
+        const resetBtn = e.target.closest("[data-reset-time-id]");
+        if (resetBtn) resetAttendanceTimes(resetBtn.dataset.resetTimeId);
         const leaveRow = e.target.closest("[data-leave-date]");
         if (leaveRow && !e.target.closest("button")) selectDay(leaveRow.dataset.leaveDate);
         const recordRow = e.target.closest("[data-record-date]");

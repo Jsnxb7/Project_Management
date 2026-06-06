@@ -32,14 +32,40 @@ def current_employee_for_user(user_id):
     return employees_collection.find_one({"user_id": user_obj_id})
 
 
+def primary_super_user_id(exclude_user_id=None):
+    query = {
+        "is_active": True,
+        "$or": [{"hrms_role": "Super User"}, {"portal_role": "Super User"}, {"role": "Super User"}],
+    }
+    users = list(users_collection.find(query).sort("created_at", 1).limit(5))
+    for user in users:
+        if user.get("_id") != exclude_user_id:
+            return user.get("_id")
+    return users[0].get("_id") if users else None
+
+
 def serialize_dt(value):
     return value.isoformat() if value and hasattr(value, "isoformat") else value
+
+
+def employee_manager_ids(employee):
+    if not employee:
+        return []
+    manager_ids = []
+    for manager_id in [employee.get("manager_id"), *(employee.get("manager_ids") or [])]:
+        if manager_id and manager_id not in manager_ids:
+            manager_ids.append(manager_id)
+    return manager_ids
 
 
 def serialize_employee(employee):
     if not employee:
         return None
-    manager = users_collection.find_one({"_id": employee.get("manager_id")}) if employee.get("manager_id") else None
+    manager_ids = employee_manager_ids(employee)
+    managers = list(users_collection.find({"_id": {"$in": manager_ids}})) if manager_ids else []
+    manager_name_map = {m["_id"]: (m.get("name") or m.get("email")) for m in managers}
+    manager_names = [manager_name_map.get(mid) for mid in manager_ids if manager_name_map.get(mid)]
+    manager = managers[0] if managers else None
     return {
         "id": str(employee["_id"]),
         "user_id": str(employee.get("user_id")) if employee.get("user_id") else None,
@@ -51,9 +77,11 @@ def serialize_employee(employee):
         "designation": employee.get("designation"),
         "joining_date": serialize_dt(employee.get("joining_date")),
         "employment_status": employee.get("employment_status", "Active"),
-        "manager_id": str(employee.get("manager_id")) if employee.get("manager_id") else None,
+        "manager_id": str(manager_ids[0]) if manager_ids else None,
+        "manager_ids": [str(mid) for mid in manager_ids],
         "manager_name": manager.get("name") or manager.get("email") if manager else None,
-        "manager_status": employee.get("manager_status", "missing" if not employee.get("manager_id") else "assigned"),
+        "manager_names": manager_names,
+        "manager_status": employee.get("manager_status", "missing" if not manager_ids else "assigned"),
         "documents": employee.get("documents", []),
         "salary": employee.get("salary", {}),
         "work_history": employee.get("work_history", []),
@@ -64,7 +92,31 @@ def manager_employee_ids(manager_user_id):
     manager_obj_id = to_object_id(manager_user_id)
     if not manager_obj_id:
         return []
-    return [e["_id"] for e in employees_collection.find({"manager_id": manager_obj_id}, {"_id": 1})]
+    return [
+        e["_id"] for e in employees_collection.find(
+            {"$or": [{"manager_id": manager_obj_id}, {"manager_ids": manager_obj_id}]},
+            {"_id": 1},
+        )
+    ]
+
+
+def assigned_employee_query(user):
+    if not user:
+        return {"_id": None}
+    return {
+        "$or": [{"manager_id": user["_id"]}, {"manager_ids": user["_id"]}],
+        "employment_status": {"$ne": "Inactive"},
+    }
+
+
+def department_employee_query(user):
+    own = current_employee_for_user(user["_id"]) if user else None
+    if not own:
+        return {"_id": None}
+    department = own.get("department")
+    if not department:
+        return {"_id": own["_id"]}
+    return {"department": department, "employment_status": {"$ne": "Inactive"}}
 
 
 def scoped_employee_query(user):
@@ -86,12 +138,7 @@ def scoped_employee_query(user):
             return {"$or": [team_query, {"department": department}]}
         return team_query
 
-    scoped_or = [{"_id": own["_id"]}]
-    if own.get("department"):
-        scoped_or.append({"department": own.get("department")})
-    if own.get("manager_id"):
-        scoped_or.append({"manager_id": own.get("manager_id")})
-    return {"$or": scoped_or}
+    return department_employee_query(user)
 
 
 def attendance_summary(employee_query):

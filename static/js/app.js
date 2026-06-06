@@ -1,5 +1,33 @@
 function getToken() { return localStorage.getItem("token"); }
 
+const nativeFetch = window.fetch.bind(window);
+let logoutSyncInProgress = false;
+let hrmsUiShell = null;
+let hrmsVisibleNavKeys = null;
+
+function setLogoutSyncState(active) {
+    logoutSyncInProgress = active;
+    document.body?.classList.toggle("logout-syncing", active);
+    const overlay = document.getElementById("logoutSyncOverlay");
+    if (overlay) overlay.setAttribute("aria-hidden", active ? "false" : "true");
+    document.querySelectorAll("#logoutBtn, #logoutProfileBtn").forEach(btn => {
+        btn.disabled = active;
+        btn.setAttribute("aria-busy", active ? "true" : "false");
+    });
+}
+
+function isLogoutRequest(resource) {
+    const url = typeof resource === "string" ? resource : resource?.url;
+    return Boolean(url && url.includes("/api/auth/logout"));
+}
+
+window.fetch = function guardedFetch(resource, options) {
+    if (logoutSyncInProgress && !isLogoutRequest(resource)) {
+        return Promise.reject(new DOMException("Logout sync is in progress", "AbortError"));
+    }
+    return nativeFetch(resource, options);
+};
+
 const PAGE_PATHS = [
     "/dashboard",
     "/employees",
@@ -34,10 +62,24 @@ function requireAuth() {
 }
 
 async function logout() {
+    if (logoutSyncInProgress) return;
     const token = getToken();
+    setLogoutSyncState(true);
     try {
-        if (token) await fetch("/api/auth/logout", { method: "POST", headers: {"Authorization": `Bearer ${token}`}, cache: "no-store" });
-    } catch (err) { console.warn("Logout request failed; clearing local session anyway.", err); }
+        const headers = token ? {"Authorization": `Bearer ${token}`} : {};
+        const response = await nativeFetch("/api/auth/logout", {
+            method: "POST",
+            headers,
+            cache: "no-store",
+            keepalive: true
+        });
+        if (!response.ok) throw new Error("Logout sync failed");
+    } catch (err) {
+        console.warn("Logout request failed; local session kept so sync can be retried.", err);
+        setLogoutSyncState(false);
+        toast("Logout sync failed. Please try again.", false);
+        return;
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userTheme");
@@ -71,7 +113,7 @@ function roleOf() {
 function roleHas(role, group) {
     const map = {
         super: ["Super User"],
-        admin: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner"],
+        admin: ["Super User"],
         people: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Business Partner", "HR Operations Specialist", "Employee Relations Manager", "Senior Manager", "Payroll Manager", "Compensation and Benefits Specialist", "Learning and Development Manager", "Employee"],
         payroll: ["Super User", "Management Admin", "HR Director", "HR Manager", "Payroll Manager", "Compensation and Benefits Specialist"],
         recruitment: ["Super User", "Management Admin", "HR Director", "HR Manager", "HR Recruiter", "Talent Acquisition Specialist", "Technical Interviewer", "Panel Interviewer", "Senior Manager"],
@@ -91,7 +133,7 @@ function permissionsForRole(role) {
     const teamManager = isSuper || ["Management Admin", "HR Director", "HR Manager", "Senior Manager"].includes(role);
     return {
         is_super_user: isSuper,
-        can_manage_users: isSuper || hrLeadership,
+        can_manage_users: isSuper,
         can_manage_employees: hrLeadership || role === "HR Operations Specialist",
         can_view_recruitment: recruiter || interviewer,
         can_view_candidate_process: role === "Candidate",
@@ -157,6 +199,24 @@ function applyTheme(theme) {
     document.body.dataset.themeKit = theme.kit_id || "custom";
 }
 
+async function loadUiShell() {
+    if (!getToken()) return null;
+    try {
+        const res = await fetch("/api/hrms/ui-shell", { headers: authHeaders(false) });
+        const data = await res.json();
+        if (data.success && data.data) {
+            hrmsUiShell = data.data;
+            hrmsVisibleNavKeys = new Set((data.data.nav_groups || []).flatMap(group => (group.items || []).map(item => item.key)));
+            document.body.dataset.role = data.data.role || roleOf();
+            setShellVisibility();
+            return data.data;
+        }
+    } catch (err) {
+        console.warn("UI shell metadata unavailable; using client-side role fallback.", err);
+    }
+    return null;
+}
+
 async function loadSavedTheme() {
     const local = localStorage.getItem("userTheme");
     if (local) {
@@ -194,7 +254,17 @@ function setShellVisibility() {
     document.querySelectorAll(".nav-links a[href^='/']").forEach(link => {
         const href = link.getAttribute("href");
         if (!PAGE_PATHS.includes(href)) return;
-        link.style.display = token && canAccessPath(role, href) ? "" : "none";
+        const key = link.dataset.navKey;
+        const serverAllowed = hrmsVisibleNavKeys ? hrmsVisibleNavKeys.has(key) : true;
+        link.style.display = token && serverAllowed && canAccessPath(role, href) ? "" : "none";
+    });
+
+    document.querySelectorAll(".nav-group").forEach(group => {
+        const visibleLinks = Array.from(group.querySelectorAll("a,button")).filter(el => {
+            const style = window.getComputedStyle(el);
+            return style.display !== "none" && style.visibility !== "hidden";
+        });
+        group.style.display = visibleLinks.length ? "" : "none";
     });
     document.querySelectorAll(".nav-group").forEach(group => {
         const protectedLinks = Array.from(group.querySelectorAll(`a[href^="/"]`)).filter(link => PAGE_PATHS.includes(link.getAttribute("href")));
@@ -295,6 +365,84 @@ function initSidebarControls() {
 }
 
 
+function initSmartFormLabels() {
+    const labelText = {
+        employee_id: "Employee", employee_ids: "Employees", manager_id: "Manager", manager_ids: "Managers",
+        name: "Full Name", email: "Email Address", password: "Password", role: "Role", hrms_role: "HRMS Role",
+        department: "Department", team: "Team", designation: "Designation", period: "Payroll Period",
+        basic_salary: "Basic Salary", allowances: "Allowances", deductions: "Deductions", tax: "Tax",
+        review_period: "Review Period", manager_rating: "Manager Rating", feedback: "Feedback",
+        kpis: "KPIs", goals: "Goals", start_date: "Start Date", end_date: "End Date",
+        leave_type: "Leave Type", reason: "Reason", requested_check_in: "Requested Check-in",
+        requested_check_out: "Requested Checkout", meeting_date: "Meeting Date", meeting_time: "Meeting Time"
+    };
+    const helpText = {
+        employee_id: "Choose the employee this record applies to.",
+        manager_ids: "You can select multiple managers where the page supports it.",
+        period: "Use YYYY-MM for monthly payroll, for example 2026-06.",
+        basic_salary: "Base salary before allowances, bonuses, deductions, and tax.",
+        allowances: "Recurring additions such as HRA, travel, or special allowance.",
+        deductions: "Manual deductions before manager confirmation.",
+        tax: "Tax or statutory deduction placeholder for the selected period.",
+        manager_rating: "Use a 1 to 5 rating unless your organization changes the scale.",
+        kpis: "Separate multiple KPIs with commas.", goals: "Separate multiple goals with commas.",
+        requested_check_in: "Use this only when correcting a missed or wrong check-in.",
+        requested_check_out: "Use this only when correcting a missed or wrong checkout."
+    };
+
+    const hasManualLabel = (field) => {
+        if (!field) return true;
+        if (field.closest("label, .field-shell, .check-row, .switch-row, .no-auto-label")) return true;
+        const id = field.getAttribute("id");
+        if (id && document.querySelector(`label[for="${CSS.escape(id)}"]`)) return true;
+        const parent = field.parentElement;
+        if (!parent) return true;
+        const previous = field.previousElementSibling;
+        if (previous && previous.matches("label, .field-label, .form-label, .input-label")) return true;
+        if (parent.querySelector(":scope > label, :scope > .field-label, :scope > .form-label, :scope > .input-label")) return true;
+        if (parent.classList.contains("field-group") || parent.classList.contains("form-group")) return true;
+        return false;
+    };
+
+    document.querySelectorAll("input, select, textarea").forEach(field => {
+        if (field.type === "hidden" || field.dataset.labelled === "true" || hasManualLabel(field)) return;
+        const form = field.closest("form");
+        // Only auto-label genuinely bare legacy fields. Forms that were deliberately rebuilt
+        // with labelled fields should not receive a second runtime label.
+        if (form && form.classList.contains("labelled-form")) return;
+        const name = field.getAttribute("name") || field.id;
+        if (!name) return;
+        const label = document.createElement("label");
+        label.className = "field-shell auto-field-label";
+        const labelTextSpan = document.createElement("span");
+        labelTextSpan.className = "field-label-text";
+        labelTextSpan.textContent = labelText[name] || name.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+        field.parentNode.insertBefore(label, field);
+        label.appendChild(labelTextSpan);
+        label.appendChild(field);
+        if (helpText[name] && !label.querySelector(".field-help")) {
+            const help = document.createElement("small");
+            help.className = "field-help";
+            help.textContent = helpText[name];
+            label.appendChild(help);
+        }
+        field.dataset.labelled = "true";
+    });
+}
+
+function initPageTabs() {
+    document.querySelectorAll("[data-tab-target]").forEach(button => {
+        button.addEventListener("click", () => {
+            const root = button.closest(".tabbed-page") || document;
+            const target = button.dataset.tabTarget;
+            root.querySelectorAll("[data-tab-target]").forEach(btn => btn.classList.toggle("active", btn === button));
+            root.querySelectorAll("[data-tab-panel]").forEach(panel => {
+                panel.hidden = panel.dataset.tabPanel !== target;
+            });
+        });
+    });
+}
+
 function enhanceResponsiveTables() {
     document.querySelectorAll(".data-table").forEach(table => {
         const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.textContent.trim());
@@ -327,10 +475,13 @@ function initAdaptiveViewport() {
     enablePerformanceMode();
     loadSavedTheme();
     setShellVisibility();
+    loadUiShell();
     hydrateSidebarUser();
     markActiveNav();
     initSidebarControls();
     enhanceResponsiveTables();
+    initSmartFormLabels();
+    initPageTabs();
 
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) logoutBtn.addEventListener("click", logout);

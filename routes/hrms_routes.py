@@ -14,12 +14,17 @@ from database.db import (
 )
 from utils.response import ok, fail, warn
 import services.attendance_service as att
+import services.payroll_performance_service as pps
+from services.ui_service import ui_shell_for_role
+from services.dashboard_service import dashboard_summary_for
 from services.hrms_service import (
     HR_POSITION_FAMILIES,
     HRMS_ROLES,
-    dashboard_for,
     normalize_role,
     role_permissions,
+    assigned_employee_query,
+    department_employee_query,
+    primary_super_user_id,
     scoped_employee_query,
     serialize_employee,
     stamp,
@@ -152,6 +157,16 @@ def serialize_message(row, me_user_id=None):
     }
 
 
+
+
+@hrms_bp.get("/ui-shell")
+@jwt_required()
+def ui_shell():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    return ok("UI shell fetched", ui_shell_for_role(user_role(user)))
+
 @hrms_bp.get("/roles")
 @jwt_required()
 def roles():
@@ -168,7 +183,16 @@ def hrms_dashboard():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    return ok("HRMS dashboard fetched", dashboard_for(user))
+    return ok("HRMS dashboard fetched", dashboard_summary_for(user))
+
+
+@hrms_bp.get("/dashboard/summary")
+@jwt_required()
+def hrms_dashboard_summary():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    return ok("HRMS dashboard summary fetched", dashboard_summary_for(user))
 
 
 @hrms_bp.get("/employees")
@@ -178,12 +202,24 @@ def list_employees():
     if not user:
         return fail("User not found", 404)
     q = (request.args.get("q") or "").strip()
-    query = scoped_employee_query(user)
+    search_query = {}
     if q:
         regex = {"$regex": q, "$options": "i"}
-        query = {"$and": [query, {"$or": [{"name": regex}, {"email": regex}, {"department": regex}, {"designation": regex}, {"employee_code": regex}]}]}
-    employees = list(employees_collection.find(query).sort("name", 1).limit(100))
-    return ok("Employees fetched", {"employees": [serialize_employee(e) for e in employees]})
+        search_query = {"$or": [{"name": regex}, {"email": regex}, {"department": regex}, {"designation": regex}, {"employee_code": regex}]}
+
+    def with_search(base_query):
+        return {"$and": [base_query, search_query]} if search_query else base_query
+
+    permissions = role_permissions(user_role(user))
+    all_query = with_search({} if permissions.get("is_super_user") else department_employee_query(user))
+    assigned_query = with_search(assigned_employee_query(user))
+    employees = list(employees_collection.find(all_query).sort("name", 1).limit(200))
+    assigned_employees = list(employees_collection.find(assigned_query).sort("name", 1).limit(200))
+    return ok("Employees fetched", {
+        "employees": [serialize_employee(e) for e in employees],
+        "department_employees": [serialize_employee(e) for e in employees],
+        "assigned_employees": [serialize_employee(e) for e in assigned_employees],
+    })
 
 
 @hrms_bp.post("/employees")
@@ -200,7 +236,19 @@ def create_employee():
     if not email:
         return fail("Employee email is required")
 
-    manager_id = to_object_id(data.get("manager_id"))
+    raw_manager_ids = data.get("manager_ids") or data.get("manager_user_ids") or []
+    if not raw_manager_ids and data.get("manager_id"):
+        raw_manager_ids = [data.get("manager_id")]
+    manager_ids = []
+    for value in raw_manager_ids:
+        manager_id = to_object_id(value)
+        if manager_id and manager_id not in manager_ids:
+            manager_ids.append(manager_id)
+    if not manager_ids:
+        default_manager_id = primary_super_user_id(exclude_user_id=to_object_id(data.get("user_id")))
+        if default_manager_id:
+            manager_ids.append(default_manager_id)
+    manager_id = manager_ids[0] if manager_ids else None
     user_id = to_object_id(data.get("user_id"))
     employee = {
         "user_id": user_id,
@@ -213,6 +261,8 @@ def create_employee():
         "joining_date": parse_date(data.get("joining_date")) or datetime.now(timezone.utc),
         "employment_status": data.get("employment_status") or "Active",
         "manager_id": manager_id,
+        "manager_ids": manager_ids,
+        "manager_status": "assigned" if manager_ids else "missing",
         "documents": data.get("documents") or [],
         "salary": data.get("salary") or {},
         "work_history": data.get("work_history") or [],
@@ -236,8 +286,18 @@ def update_employee(employee_id):
     data = request.get_json() or {}
     allowed = ["employee_code", "name", "email", "phone", "department", "designation", "employment_status", "documents", "salary", "work_history"]
     updates = {key: data[key] for key in allowed if key in data}
-    if "manager_id" in data:
-        updates["manager_id"] = to_object_id(data.get("manager_id"))
+    if "manager_id" in data or "manager_ids" in data or "manager_user_ids" in data:
+        raw_manager_ids = data.get("manager_ids") or data.get("manager_user_ids") or []
+        if not raw_manager_ids and data.get("manager_id"):
+            raw_manager_ids = [data.get("manager_id")]
+        manager_ids = []
+        for value in raw_manager_ids:
+            manager_id = to_object_id(value)
+            if manager_id and manager_id not in manager_ids:
+                manager_ids.append(manager_id)
+        updates["manager_id"] = manager_ids[0] if manager_ids else None
+        updates["manager_ids"] = manager_ids
+        updates["manager_status"] = "assigned" if manager_ids else "missing"
     if "joining_date" in data:
         updates["joining_date"] = parse_date(data.get("joining_date"))
     updates["updated_at"] = datetime.now(timezone.utc)
@@ -314,7 +374,10 @@ def attendance_check_in():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    row, error = att.check_in(user, request.get_json() or {})
+    try:
+        row, error = att.check_in(user, request.get_json() or {})
+    except Exception as exc:
+        return fail(f"Check-in failed: {exc}", 500)
     if error and row:
         return warn(error, {"record": row})
     if error:
@@ -328,7 +391,10 @@ def attendance_check_out():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    row, error = att.check_out(user, request.get_json() or {})
+    try:
+        row, error = att.check_out(user, request.get_json() or {})
+    except Exception as exc:
+        return fail(f"Checkout failed: {exc}", 500)
     if error and row:
         return warn(error, {"record": row})
     if error:
@@ -507,7 +573,7 @@ def assign_manager(user_id):
     if not user:
         return fail("User not found", 404)
     data = request.get_json() or {}
-    row, error = att.assign_manager(user, user_id, data.get("manager_user_id") or data.get("manager_id"))
+    row, error = att.assign_manager(user, user_id, data.get("manager_user_id") or data.get("manager_id"), data.get("manager_user_ids") or data.get("manager_ids"))
     if error:
         return warn(error)
     return ok("Manager assigned", {"employee": row})
@@ -600,76 +666,196 @@ def attendance_corrections():
     return ok("Attendance corrections fetched", {"corrections": att.list_corrections(user)})
 
 
+
+
+@hrms_bp.get("/payroll")
+@jwt_required()
+def payroll_workspace():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    if not role_permissions(user_role(user)).get("can_view_payroll"):
+        return warn("Warning: your HRMS role cannot view payroll.")
+    return ok("Payroll workspace fetched", pps.payroll_workspace(user))
+
+
 @hrms_bp.post("/payroll")
 @jwt_required()
-def create_payroll():
-    user, error = require_permission("can_manage_payroll")
+def create_simple_payroll():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.generate_payroll(user, request.get_json() or {})
     if error:
-        return error
-    data = request.get_json() or {}
-    employee_id = to_object_id(data.get("employee_id"))
-    employee = employees_collection.find_one({"_id": employee_id}) if employee_id else None
-    if not employee:
-        return fail("Employee is required")
-    if not can_access_employee(user, employee_id):
-        return warn("Warning: you can only create payroll for employees in your allowed department or team scope.")
-    basic = money(data.get("basic_salary") or employee.get("salary", {}).get("basic"))
-    allowances = money(data.get("allowances") or employee.get("salary", {}).get("allowances"))
-    deductions = money(data.get("deductions"))
-    tax = money(data.get("tax"))
-    net_salary = round(basic + allowances - deductions - tax, 2)
-    result = payroll_collection.insert_one({
-        "employee_id": employee_id,
-        "period": data.get("period") or datetime.now(timezone.utc).strftime("%Y-%m"),
-        "basic_salary": basic,
-        "allowances": allowances,
-        "deductions": deductions,
-        "tax": tax,
-        "net_salary": net_salary,
-        "attendance_based": bool(data.get("attendance_based", True)),
-        "status": data.get("status") or "Draft",
-        "payslip_url": data.get("payslip_url"),
-        **stamp(user["_id"]),
-    })
-    return ok("Payroll entry created", {"id": str(result.inserted_id), "net_salary": net_salary}, 201)
+        return warn(error)
+    return ok("Payroll generated", row, 201)
+
+
+@hrms_bp.post("/payroll/profile")
+@jwt_required()
+def upsert_payroll_profile():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.upsert_profile(user, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Payroll profile saved", {"profile": row})
+
+
+@hrms_bp.post("/payroll/profiles/generate")
+@jwt_required()
+def generate_payroll_profiles():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.bulk_generate_profiles(user, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Salary profiles generated", row, 201)
+
+
+@hrms_bp.post("/payroll/generate")
+@jwt_required()
+def generate_payroll_batch():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.generate_payroll(user, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Payroll generated", row, 201)
+
+
+@hrms_bp.post("/payroll/adjustments/<adjustment_id>/toggle")
+@jwt_required()
+def toggle_payroll_adjustment(adjustment_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.toggle_adjustment(user, adjustment_id, bool((request.get_json() or {}).get("included", True)))
+    if error:
+        return warn(error)
+    return ok("Payroll adjustment updated", {"adjustment": row})
+
+
+@hrms_bp.post("/payroll/items/<item_id>/confirm")
+@jwt_required()
+def confirm_simple_payroll(item_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.confirm_payroll(user, item_id, (request.get_json() or {}).get("action") or "confirm")
+    if error:
+        return warn(error)
+    return ok("Payroll confirmation updated", {"item": row})
+
+
+@hrms_bp.patch("/payroll/items/<item_id>")
+@jwt_required()
+def edit_simple_payroll(item_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.edit_payroll_item(user, item_id, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Payroll item updated", {"item": row})
+
+
+@hrms_bp.post("/payroll/items/<item_id>/pay")
+@jwt_required()
+def pay_simple_payroll(item_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.payout_payroll(user, item_id)
+    if error:
+        return warn(error)
+    return ok("Payroll marked as paid", {"item": row})
+
+
+@hrms_bp.post("/payroll/custom-pay")
+@jwt_required()
+def custom_payroll_now():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.custom_payroll_payout(user, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Custom payroll paid", {"item": row}, 201)
 
 
 @hrms_bp.get("/performance")
 @jwt_required()
-def list_performance_reviews():
+def performance_workspace():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    employee_ids = scoped_employee_ids(user)
-    rows = list(performance_reviews_collection.find({"employee_id": {"$in": employee_ids}}).sort("created_at", -1).limit(100))
-    return ok("Performance reviews fetched", {"reviews": [serialize_review(row) for row in rows]})
+    if not role_permissions(user_role(user)).get("can_view_performance"):
+        return warn("Warning: your HRMS role cannot view performance.")
+    return ok("Performance workspace fetched", pps.performance_workspace(user))
 
 
 @hrms_bp.post("/performance")
 @jwt_required()
-def create_performance_review():
-    user, error = require_permission("can_review_performance")
+def assign_simple_performance_goal():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.assign_goals(user, request.get_json() or {})
     if error:
-        return error
-    data = request.get_json() or {}
-    employee_id = to_object_id(data.get("employee_id"))
-    if not employee_id or not employees_collection.find_one({"_id": employee_id}):
-        return fail("Employee is required")
-    if not can_access_employee(user, employee_id):
-        return warn("Warning: you can only create reviews for employees in your allowed department or team scope.")
-    result = performance_reviews_collection.insert_one({
-        "employee_id": employee_id,
-        "manager_id": user["_id"],
-        "review_period": data.get("review_period") or datetime.now(timezone.utc).strftime("%Y"),
-        "manager_rating": money(data.get("manager_rating")),
-        "kpis": data.get("kpis") or [],
-        "goals": data.get("goals") or [],
-        "feedback": data.get("feedback") or "",
-        "promotion_recommendation": bool(data.get("promotion_recommendation")),
-        "status": data.get("status") or "Pending",
-        **stamp(user["_id"]),
-    })
-    return ok("Performance review created", {"id": str(result.inserted_id)}, 201)
+        return warn(error, row)
+    return ok("Performance goals assigned", row, 201)
+
+
+@hrms_bp.post("/performance/templates")
+@jwt_required()
+def create_performance_template():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.create_template(user, request.get_json() or {})
+    if error:
+        return warn(error)
+    return ok("Performance template created", {"template": row}, 201)
+
+
+@hrms_bp.post("/performance/goals")
+@jwt_required()
+def assign_performance_goals():
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.assign_goals(user, request.get_json() or {})
+    if error:
+        return warn(error, row)
+    return ok("Performance goals assigned", row, 201)
+
+
+@hrms_bp.post("/performance/goals/<goal_id>/checklist/<item_id>/check")
+@jwt_required()
+def check_performance_item(goal_id, item_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.update_checklist(user, goal_id, item_id, request.get_json() or {}, "employee_check")
+    if error:
+        return warn(error)
+    return ok("Checklist updated", {"goal": row})
+
+
+@hrms_bp.post("/performance/goals/<goal_id>/checklist/<item_id>/verify")
+@jwt_required()
+def verify_performance_item(goal_id, item_id):
+    user = current_user()
+    if not user:
+        return fail("User not found", 404)
+    row, error = pps.update_checklist(user, goal_id, item_id, request.get_json() or {}, "manager_verify")
+    if error:
+        return warn(error)
+    return ok("Checklist verification updated", {"goal": row})
 
 
 @hrms_bp.get("/messages/conversations")

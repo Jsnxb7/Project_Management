@@ -2,6 +2,19 @@ function renderSteps(steps = []) {
     return `<div class="process-list">${(steps || []).map((s, i) => `<div class="process-step"><b>${i + 1}. ${escapeHTML(s.title || s.name || s)}</b><span>${escapeHTML(s.status || 'Pending')}</span><p>${escapeHTML(s.details || '')}</p></div>`).join('') || '<p class="empty">No process steps assigned.</p>'}</div>`;
 }
 
+function renderCredentials(creds) {
+    if (!creds) return '';
+    const password = creds.temporary_password || creds.password_note || 'Existing candidate password unchanged.';
+    return `<article class="mini-item vertical">
+        <strong>Candidate Login</strong>
+        <div class="credential-grid compact">
+            <span><b>UID</b>${escapeHTML(creds.candidate_uid || 'N/A')}</span>
+            <span><b>Email</b>${escapeHTML(creds.candidate_email || 'N/A')}</span>
+            <span><b>Password</b>${escapeHTML(password)}</span>
+        </div>
+    </article>`;
+}
+
 async function loadRoomDetails() {
     const headers = getToken() ? authHeaders(false) : {};
     const box = document.getElementById('roomDetails');
@@ -10,8 +23,9 @@ async function loadRoomDetails() {
     if (!data.success) { box.innerHTML = `<p class="empty">${escapeHTML(data.message || 'Room details unavailable')}</p>`; return; }
     const s = data.data.session || {};
     const job = data.data.job || {};
-    document.getElementById('aiPromptText').textContent = `Interview for ${job.title || 'assigned role'} • ${s.mode || 'AI Voice + Human Panel'}`;
-    box.innerHTML = `<article class="mini-item vertical"><strong>${escapeHTML(s.candidate_name || 'Candidate')}</strong><p class="muted">${escapeHTML(s.candidate_email || '')} • UID: ${escapeHTML(s.candidate_uid || 'N/A')}</p><p class="muted">Job: ${escapeHTML(job.title || 'N/A')} • Scheduled: ${escapeHTML(s.scheduled_at || 'To be confirmed')}</p><span class="status-pill">${escapeHTML(s.status || 'Open')}</span></article>${renderSteps(s.process_steps || [])}`;
+    document.getElementById('aiPromptText').textContent = `Interview for ${job.title || 'assigned role'} - ${s.mode || 'AI Voice + Human Panel'}`;
+    const candidateLine = s.candidate_email || s.candidate_uid ? `<p class="muted">${escapeHTML(s.candidate_email || '')}${s.candidate_uid ? ' UID: ' + escapeHTML(s.candidate_uid) : ''}</p>` : '';
+    box.innerHTML = `<article class="mini-item vertical"><strong>${escapeHTML(s.candidate_name || 'Candidate')}</strong>${candidateLine}<p class="muted">Job: ${escapeHTML(job.title || 'Assigned role')} Scheduled: ${escapeHTML(s.scheduled_at || 'To be confirmed')}</p><span class="status-pill">${escapeHTML(s.status || 'Open')}</span></article>${renderCredentials(s.candidate_credentials)}${renderSteps(s.process_steps || [])}`;
 }
 
 async function loadRoomMessages() {

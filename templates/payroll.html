@@ -3,17 +3,132 @@
 {% block title %}Payroll | PeopleOps HRMS{% endblock %}
 
 {% block content %}
-<section class="page-head split">
+<section class="page-head split professional-head">
     <div>
         <p class="eyebrow">Payroll</p>
-        <h1>Payroll Control</h1>
-        <p class="muted">Salary structures, allowances, deductions, taxes, approvals, and payslip tracking.</p>
+        <h1>Simple Payroll Review</h1>
+        <p class="muted">Finance and Super User generate payroll. Verified attendance and performance anomalies appear as additions or deductions. Assigned managers and Super User can include or exclude each impact before payout.</p>
+        <div class="page-meta-row">
+            <span class="status-pill">Employee self view</span>
+            <span class="status-pill">Manager review</span>
+            <span class="status-pill">Finance generated</span>
+        </div>
     </div>
+    <button class="btn secondary" id="refreshPayrollBtn" type="button">Refresh</button>
 </section>
 
-<section class="panel">
-    <h2>Payroll Summary</h2>
-    <div id="payrollSummary" class="mini-list"></div>
+<section class="stat-grid compact-stat-grid" aria-live="polite">
+    <article class="stat-card"><span>Payroll Items</span><strong id="payrollItemCount">0</strong><small>Visible records</small></article>
+    <article class="stat-card"><span>Pending Manager Review</span><strong id="payrollPendingCount">0</strong><small>Need manager confirmation</small></article>
+    <article class="stat-card"><span>Paid</span><strong id="payrollPaidCount">0</strong><small>Marked paid internally</small></article>
+    <article class="stat-card"><span>Additions / Deductions</span><strong id="payrollAdjustmentCount">0</strong><small>Linked impacts</small></article>
+</section>
+
+<section class="tabbed-page simple-hrms-page" id="payrollApp">
+    <div class="panel tab-toolbar" role="tablist" aria-label="Payroll sections">
+        <button class="tab-btn active" data-tab-target="payroll-list" type="button">Payrolls</button>
+        <button class="tab-btn manager-only" data-tab-target="adjustments" type="button">Additions & Deductions</button>
+        <button class="tab-btn finance-only" data-tab-target="generate" type="button">Generate Payroll</button>
+        <button class="tab-btn finance-only" data-tab-target="profiles" type="button">Salary Profiles</button>
+        <button class="tab-btn" data-tab-target="rules" type="button">Rules</button>
+    </div>
+
+    <section class="panel" data-tab-panel="payroll-list">
+        <div class="section-title split"><div><h2>Payroll Records</h2><p class="muted">Employees see only their payroll. Managers see self and assigned employees. Finance/Super User see all records.</p></div></div>
+        <div id="payrollList" class="record-list"><div class="empty-state">Loading payroll...</div></div>
+    </section>
+
+    <section class="panel" data-tab-panel="adjustments" hidden>
+        <div class="section-title"><h2>Payroll Additions & Deductions</h2><p class="muted">Uncheck items that should not affect payout. Performance and attendance impacts are listed separately.</p></div>
+        <div id="adjustmentList" class="record-list"><div class="empty-state">Loading additions and deductions...</div></div>
+    </section>
+
+    <section class="panel" data-tab-panel="generate" hidden>
+        <div class="section-title"><h2>Generate Payroll</h2><p class="muted">Create payroll for one employee, selected employees, or a whole department.</p></div>
+        <form id="generatePayrollForm" class="form-grid labelled-form">
+            <label class="field-shell">Payroll Month
+                <input name="cycle_key" type="month" required>
+                <small class="field-help">The salary period to generate.</small>
+            </label>
+            <label class="field-shell">Department
+                <input name="department" placeholder="Optional: Engineering">
+                <small class="field-help">Leave empty when selecting employees manually.</small>
+            </label>
+            <label class="field-shell full-span">Employees
+                <select name="employee_ids" id="payrollEmployeeSelect" multiple></select>
+                <small class="field-help">Optional. If empty and department is empty, payroll generates for all visible employees.</small>
+            </label>
+            <label class="switch-row no-auto-label full-span"><input name="force_regenerate" type="checkbox" value="1"> Recalculate even if payroll already exists</label>
+            <button class="btn" type="submit">Generate Payroll</button>
+            <p class="message" id="generatePayrollMessage"></p>
+        </form>
+        <div class="soft-divider"></div>
+        <div class="section-title"><h2>Custom Pay Now</h2><p class="muted">Pay a one-off amount immediately, outside the regular generated cycle.</p></div>
+        <form id="customPayForm" class="form-grid labelled-form">
+            <label class="field-shell">Payroll Month
+                <input name="cycle_key" type="month" required>
+            </label>
+            <label class="field-shell">Employee
+                <select name="employee_id" id="customPayEmployeeSelect" required><option value="">Select employee</option></select>
+            </label>
+            <label class="field-shell">Amount
+                <input name="amount" type="number" min="0.01" step="0.01" required placeholder="10000">
+            </label>
+            <label class="field-shell">Reason
+                <input name="reason" placeholder="Advance, correction, bonus, reimbursement">
+            </label>
+            <button class="btn success" type="submit">Pay Now</button>
+            <p class="message" id="customPayMessage"></p>
+        </form>
+    </section>
+
+    <section class="panel" data-tab-panel="profiles" hidden>
+        <div class="section-title"><h2>Salary Profile</h2><p class="muted">Set the monthly base salary used by payroll calculations.</p></div>
+        <form id="payrollProfileForm" class="form-grid labelled-form">
+            <label class="field-shell full-span">Employee
+                <select name="employee_id" id="profileEmployeeSelect" required><option value="">Select employee</option></select>
+            </label>
+            <label class="field-shell">Base Salary
+                <input name="base_salary" type="number" min="0" step="0.01" required placeholder="50000">
+                <small class="field-help">Monthly salary before additions and deductions.</small>
+            </label>
+            <label class="field-shell">Currency
+                <select name="currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+            </label>
+            <button class="btn secondary" type="submit">Save Salary Profile</button>
+            <p class="message" id="profileMessage"></p>
+        </form>
+        <div class="soft-divider"></div>
+        <div class="section-title"><h2>Generate Profiles Department Wise</h2><p class="muted">Create or update salary profiles for all active employees using department salary rules.</p></div>
+        <form id="bulkProfileForm" class="form-grid labelled-form">
+            <label class="field-shell">Default Base Salary
+                <input name="default_base_salary" type="number" min="0" step="0.01" placeholder="40000">
+            </label>
+            <label class="field-shell">Only Department
+                <input name="department" placeholder="Optional: Engineering">
+            </label>
+            <label class="field-shell">Currency
+                <select name="currency"><option value="INR">INR</option><option value="USD">USD</option></select>
+            </label>
+            <label class="field-shell full-span">Department Salaries
+                <textarea name="department_salaries" rows="5" placeholder="Engineering=70000&#10;HR=45000&#10;Finance=55000"></textarea>
+                <small class="field-help">One department per line. These values override the default salary.</small>
+            </label>
+            <button class="btn secondary" type="submit">Generate Salary Profiles</button>
+            <p class="message" id="bulkProfileMessage"></p>
+        </form>
+        <div id="profileList" class="record-list"></div>
+    </section>
+
+    <section class="panel" data-tab-panel="rules" hidden>
+        <div class="section-title"><h2>Simple Payroll Rules</h2><p class="muted">The payroll page keeps the flow easy to understand.</p></div>
+        <div class="grid-two">
+            <article class="soft-panel"><h3>Who can generate payroll?</h3><p>Finance department roles and Super User.</p></article>
+            <article class="soft-panel"><h3>Who can review changes?</h3><p>Assigned managers can include/exclude additions and deductions for their employees. Super User can override all.</p></article>
+            <article class="soft-panel"><h3>What creates additions?</h3><p>Verified overtime and completed performance goals.</p></article>
+            <article class="soft-panel"><h3>What creates deductions?</h3><p>Verified attendance penalties and rejected performance goals.</p></article>
+        </div>
+    </section>
 </section>
 {% endblock %}
 

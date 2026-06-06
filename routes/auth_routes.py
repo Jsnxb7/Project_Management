@@ -4,10 +4,10 @@ from bson import ObjectId
 from datetime import datetime, timezone
 
 from app import bcrypt
-from database.db import users_collection
+from database.db import copy_mongo_to_json, employees_collection, sync_json_to_mongo, users_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
-from services.hrms_service import HRMS_ROLES, normalize_role
+from services.hrms_service import HRMS_ROLES, normalize_role, primary_super_user_id
 
 
 auth_bp = Blueprint("auth_bp", __name__)
@@ -68,6 +68,29 @@ def signup():
         "updated_at": now,
         "last_login": None,
     })
+    if portal_role != "Super User":
+        manager_id = primary_super_user_id(exclude_user_id=result.inserted_id)
+        manager_ids = [manager_id] if manager_id else []
+        employees_collection.insert_one({
+            "user_id": result.inserted_id,
+            "employee_code": "",
+            "name": name,
+            "email": email,
+            "phone": "",
+            "department": "Unassigned",
+            "designation": portal_role,
+            "joining_date": now,
+            "employment_status": "Active",
+            "manager_id": manager_id,
+            "manager_ids": manager_ids,
+            "manager_status": "assigned" if manager_ids else "missing",
+            "documents": [],
+            "salary": {},
+            "work_history": [],
+            "created_by": None,
+            "created_at": now,
+            "updated_at": now,
+        })
 
     message = "Super User account created successfully" if portal_role == "Super User" else "Account created successfully"
     return ok(message, {"id": str(result.inserted_id), "portal_role": portal_role}, 201)
@@ -82,6 +105,12 @@ def login():
 
     if not email or not password:
         return fail("Email and password are required")
+
+    if users_collection.count_documents({}) == 0:
+        try:
+            copy_mongo_to_json()
+        except Exception as exc:
+            return fail(f"Unable to bootstrap local JSON database from Mongo Atlas: {exc}", 503)
 
     user = users_collection.find_one({"email": email, "is_active": True})
     if not user or not bcrypt.check_password_hash(user["password_hash"], password):
@@ -115,6 +144,10 @@ def logout():
             TOKEN_BLOCKLIST.add(jti)
     except Exception:
         pass
+    try:
+        sync_json_to_mongo()
+    except Exception as exc:
+        return fail(f"Logout backup to Mongo Atlas failed: {exc}", 503)
     session.clear()
     return ok("Logout successful")
 

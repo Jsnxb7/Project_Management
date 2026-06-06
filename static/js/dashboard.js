@@ -1,129 +1,199 @@
 function tokenHeaders() {
     const token = localStorage.getItem("token");
-    return {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-    };
+    return { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
 }
 
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+function safe(value, fallback = "0") {
+    return value === undefined || value === null || value === "" ? fallback : value;
 }
 
-function humanize(value) {
-    return String(value || "").replace(/^can_/, "").replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+function money(value) {
+    const number = Number(value || 0);
+    return `₹${number.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
-function miniItem(label, value) {
-    return `<div class="mini-item"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div>`;
+function metric(label, value, subtext = "") {
+    return `<div class="metric-row"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong>${subtext ? `<small>${escapeHTML(subtext)}</small>` : ""}</div>`;
 }
 
-function renderPermissions(permissions) {
-    const box = document.getElementById("permissionList");
+function emptyState(label) {
+    return `<div class="empty-state compact">${escapeHTML(label)}</div>`;
+}
+
+function renderWidgets(widgets) {
+    const box = document.getElementById("dashboardWidgets");
     if (!box) return;
-    const enabled = Object.entries(permissions || {}).filter(([, value]) => value);
-    box.innerHTML = enabled.map(([key]) => `<span class="role-pill">${escapeHTML(humanize(key))}</span>`).join("");
+    box.innerHTML = (widgets || []).map(widget => `
+        <a class="metric-card tone-${escapeHTML(widget.tone || "info")}" href="${escapeHTML(widget.href || "#")}">
+            <span>${escapeHTML(widget.label)}</span>
+            <strong>${escapeHTML(widget.value)}</strong>
+            <small>${escapeHTML(widget.subtext || "")}</small>
+        </a>
+    `).join("");
 }
 
-function renderCompany(company) {
-    const box = document.getElementById("departmentList");
-    const panel = document.getElementById("companyPanel");
-    if (!box || !panel) return;
-    if (!company) {
-        panel.hidden = true;
-        return;
+function renderAttendance(attendance) {
+    const ring = document.getElementById("attendanceRing");
+    const ringValue = document.getElementById("attendanceRingValue");
+    const metrics = document.getElementById("attendanceMetrics");
+    const value = attendance?.ring?.value || 0;
+    if (ring) ring.style.setProperty("--ring-value", `${value}%`);
+    if (ringValue) ringValue.textContent = `${value}%`;
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Present today", attendance?.present_today || 0),
+            metric("Late today", attendance?.late_today || 0),
+            metric("Absent today", attendance?.absent_today || 0),
+            metric("Overtime today", attendance?.overtime_today || 0),
+            metric("Pending anomalies", attendance?.pending_anomalies || 0),
+            metric("Leave approvals", attendance?.pending_leaves || 0),
+        ].join("");
     }
+}
+
+function renderPerformance(performance) {
+    const bar = document.getElementById("performanceScoreBar");
+    const metrics = document.getElementById("performanceMetrics");
+    const score = Number(performance?.average_score || 0);
+    if (bar) {
+        bar.style.width = `${Math.min(score, 100)}%`;
+        bar.textContent = `${score}%`;
+    }
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Goals", performance?.goals || 0),
+            metric("Submitted", performance?.submitted || 0),
+            metric("Completed", performance?.completed || 0),
+            metric("Needs improvement", performance?.needs_improvement || 0),
+            metric("Checklist reviews", performance?.pending_verification || 0),
+        ].join("");
+    }
+}
+
+function renderPayroll(payroll) {
+    const pipeline = document.getElementById("payrollPipeline");
+    const metrics = document.getElementById("payrollMetrics");
+    if (pipeline) {
+        const steps = [
+            ["Draft", payroll?.items || 0],
+            ["Manager Review", payroll?.pending_manager || 0],
+            ["Payout Ready", payroll?.payout_ready || 0],
+            ["Paid", payroll?.paid || 0],
+            ["Blocked", payroll?.blocked || 0],
+        ];
+        pipeline.innerHTML = steps.map(([label, count]) => `<div class="pipeline-step"><strong>${escapeHTML(count)}</strong><span>${escapeHTML(label)}</span></div>`).join("");
+    }
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Visible payrolls", payroll?.items || 0),
+            metric("Additions", money(payroll?.additions || 0)),
+            metric("Deductions", money(payroll?.deductions || 0)),
+            metric("Visible net pay", money(payroll?.net_pay || 0)),
+        ].join("");
+    }
+}
+
+function renderPeople(people) {
+    const metrics = document.getElementById("peopleMetrics");
+    const bars = document.getElementById("departmentBars");
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Total", people?.total || 0),
+            metric("Active", people?.active || 0),
+            metric("Inactive", people?.inactive || 0),
+            metric("Missing managers", people?.manager_missing || 0),
+        ].join("");
+    }
+    if (bars) {
+        const max = Math.max(...(people?.departments || []).map(d => d.count || 0), 1);
+        bars.innerHTML = (people?.departments || []).map(d => `
+            <div class="mini-bar-row"><span>${escapeHTML(d.name)}</span><div><i style="width:${((d.count || 0) / max) * 100}%"></i></div><strong>${escapeHTML(d.count || 0)}</strong></div>
+        `).join("") || emptyState("No department data yet");
+    }
+}
+
+function renderRecruitment(recruitment) {
+    const panel = document.getElementById("recruitmentPanel");
+    if (!panel) return;
+    if (!recruitment) { panel.hidden = true; return; }
     panel.hidden = false;
-    setText("totalEmployees", company.total_employees ?? 0);
-    setText("activeEmployees", company.active_employees ?? 0);
-    setText("payrollPending", company.payroll_pending ?? 0);
-    setText("leavePending", company.leave_pending ?? 0);
-    box.innerHTML = (company.departments || []).slice(0, 8).map(row => miniItem(row.name, row.count)).join("") || miniItem("Departments", "No employees yet");
+    const metrics = document.getElementById("recruitmentMetrics");
+    const bars = document.getElementById("recruitmentBars");
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Open jobs", recruitment.open_jobs || 0),
+            metric("Applications", recruitment.applications || 0),
+            metric("Shortlisted", recruitment.shortlisted || 0),
+            metric("AI reports", recruitment.ai_reports_ready || 0),
+        ].join("");
+    }
+    if (bars) {
+        const max = Math.max(...(recruitment.pipeline || []).map(d => d.count || 0), 1);
+        bars.innerHTML = (recruitment.pipeline || []).map(d => `
+            <div class="mini-bar-row"><span>${escapeHTML(d.status)}</span><div><i style="width:${((d.count || 0) / max) * 100}%"></i></div><strong>${escapeHTML(d.count || 0)}</strong></div>
+        `).join("") || emptyState("No application pipeline yet");
+    }
 }
 
-function renderRoleWorkspace(data) {
-    const title = document.getElementById("rolePanelTitle");
-    const body = document.getElementById("rolePanelBody");
-    if (!title || !body) return;
-
-    if (data.recruitment) {
-        title.textContent = "Recruitment Workspace";
-        body.innerHTML = [
-            miniItem("Applications", data.recruitment.applications ?? 0),
-            miniItem("Shortlisted", data.recruitment.shortlisted ?? 0),
-            miniItem("Rejected", data.recruitment.rejected ?? 0),
-            miniItem("AI Reports Ready", data.recruitment.ai_reports_ready ?? 0),
+function renderSystem(system) {
+    const panel = document.getElementById("systemPanel");
+    if (!panel) return;
+    if (!system) { panel.hidden = true; return; }
+    panel.hidden = false;
+    const metrics = document.getElementById("systemMetrics");
+    if (metrics) {
+        metrics.innerHTML = [
+            metric("Mirror mode", system.json_mongo_mode || "two-way"),
+            metric("Missing managers", system.missing_manager_assignments || 0),
+            metric("Audit logs", system.audit_logs || 0),
+            metric("UI registry", system.ui_registry || "clean"),
         ].join("");
-        return;
     }
-    if (data.team) {
-        title.textContent = "Senior Manager Workspace";
-        body.innerHTML = [
-            miniItem("Team Members", data.team.members ?? 0),
-            miniItem("Team Attendance Logs", data.team.attendance_logs ?? 0),
-            miniItem("Leave Approvals", data.team.leave_approvals ?? 0),
-            miniItem("Pending Attendance Reviews", data.attendance?.pending_reviews ?? 0),
-            miniItem("Reviews Pending", data.team.reviews_pending ?? 0),
-        ].join("");
-        return;
-    }
-    if (data.self) {
-        title.textContent = "Employee Self-Service";
-        body.innerHTML = [
-            miniItem("Attendance Logs", data.self.attendance_logs ?? 0),
-            miniItem("Today Present/Late", `${data.attendance?.present ?? 0}/${data.attendance?.late ?? 0}`),
-            miniItem("Payslips", data.self.payslips ?? 0),
-            miniItem("Performance Reviews", data.self.reviews ?? 0),
-            miniItem("Leave Requests", data.self.leave_requests ?? 0),
-        ].join("");
-        return;
-    }
-    title.textContent = "HR Operations Workspace";
-    body.innerHTML = [
-        miniItem("Scoped Employees", data.employee_scope_count ?? 0),
-        miniItem("Open Leave Requests", data.open_leave_requests ?? 0),
-        miniItem("Pending Reviews", data.pending_reviews ?? 0),
-    ].join("");
 }
 
-function renderActivity(items) {
-    const box = document.getElementById("activityList");
+function renderPending(actions) {
+    const box = document.getElementById("pendingActions");
+    const count = document.getElementById("pendingCount");
+    if (count) count.textContent = `${(actions || []).length} pending`;
     if (!box) return;
-    if (!items || !items.length) {
-        box.innerHTML = miniItem("Activity", "No HR updates yet");
-        return;
-    }
-    box.innerHTML = items.map(item => miniItem(`${item.kind}: ${item.label}`, item.created_at || "")).join("");
+    box.innerHTML = (actions || []).length ? actions.map(action => `
+        <a class="action-item tone-${escapeHTML(action.tone || "info")}" href="${escapeHTML(action.href || "#")}">
+            <span>${escapeHTML(action.label)}</span><strong>${escapeHTML(action.count)}</strong>
+        </a>
+    `).join("") : emptyState("No pending actions right now.");
 }
 
-async function loadHrmsDashboard() {
+function renderTimeline(id, items, messageKey = "label") {
+    const box = document.getElementById(id);
+    if (!box) return;
+    box.innerHTML = (items || []).length ? items.map(item => `
+        <div class="timeline-row"><span>${escapeHTML(item.kind || item.type || "Update")}</span><strong>${escapeHTML(item[messageKey] || item.message || "Update")}</strong><small>${escapeHTML(item.created_at || "")}</small></div>
+    `).join("") : emptyState("No recent updates yet.");
+}
+
+async function loadDashboard() {
     if (!requireAuth()) return;
-    const res = await fetch("/api/hrms/dashboard", { headers: tokenHeaders() });
-    const data = await res.json();
-    if (!data.success) {
+    const res = await fetch("/api/hrms/dashboard/summary", { headers: tokenHeaders() });
+    const payload = await res.json();
+    if (!payload.success) {
         if (res.status === 401) window.location.href = "/login";
-        toast(data.message || "Could not load HRMS dashboard", false, data.warning);
+        toast(payload.message || "Could not load dashboard", false, payload.warning);
         return;
     }
-    const d = data.data;
-    setText("dashboardTitle", `${d.role || "Employee"} Dashboard`);
-    setText("hrmsRole", d.role || "Employee");
-    setText("employeeScope", d.employee_scope_count ?? 0);
-    setText("activeEmployees", d.active_employees ?? 0);
-    setText("presentLogs", d.attendance?.present ?? 0);
-    setText("lateLogs", d.attendance?.late ?? 0);
-    setText("absentLogs", d.attendance?.absent ?? 0);
-    setText("overtimeLogs", d.attendance?.overtime ?? 0);
-    setText("attendanceReviewsPending", d.attendance?.pending_reviews ?? d.company?.attendance_reviews_pending ?? 0);
-    setText("totalEmployees", d.company?.total_employees ?? d.employee_scope_count ?? 0);
-    setText("payrollPending", d.company?.payroll_pending ?? 0);
-    setText("leavePending", d.company?.leave_pending ?? d.open_leave_requests ?? 0);
-    setText("managerMissing", d.company?.manager_missing ?? 0);
-    renderPermissions(d.permissions);
-    renderCompany(d.company);
-    renderRoleWorkspace(d);
-    renderActivity(d.recent_activity || []);
+    const data = payload.data || {};
+    document.getElementById("dashboardTitle").textContent = `${data.role || "Employee"} Dashboard`;
+    document.getElementById("dashboardRolePill").textContent = data.role || "Employee";
+    document.getElementById("dashboardScopePill").textContent = `${data.scope?.kind || "self"} scope · ${data.scope?.visible_employee_count || 0} people`;
+    renderWidgets(data.widgets || []);
+    renderAttendance(data.attendance || {});
+    renderPerformance(data.performance || {});
+    renderPayroll(data.payroll || {});
+    renderPeople(data.people || {});
+    renderRecruitment(data.recruitment);
+    renderSystem(data.system_health);
+    renderPending(data.pending_actions || []);
+    renderTimeline("recentActivity", data.recent_activity || []);
+    renderTimeline("recentNotifications", data.notifications?.recent || [], "message");
 }
 
-loadHrmsDashboard();
+loadDashboard();

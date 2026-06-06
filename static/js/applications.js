@@ -40,6 +40,19 @@ function processStepsList(steps = []) {
     return `<div class="process-list">${(steps || []).map((s, i) => `<div class="process-step"><b>${i + 1}. ${escapeHTML(s.title || s.name || s)}</b><span>${escapeHTML(s.status || 'Pending')}</span><p>${escapeHTML(s.details || '')}</p></div>`).join('') || '<p class="empty">No custom process steps assigned yet.</p>'}</div>`;
 }
 
+function candidateCredentialPanel(a, compact = false) {
+    if (!a.candidate_account_created) return '<p class="muted">No candidate login account yet.</p>';
+    const password = a.candidate_login_password || '';
+    const passwordLine = password
+        ? `<span><b>Password</b>${escapeHTML(password)}</span>`
+        : `<span><b>Password</b>${escapeHTML(a.candidate_password_note || 'Existing candidate password unchanged.')}</span>`;
+    return `<div class="credential-grid ${compact ? 'compact' : ''}">
+        <span><b>UID</b>${escapeHTML(a.candidate_uid || 'N/A')}</span>
+        <span><b>Email</b>${escapeHTML(a.candidate_login_email || a.candidate_email || 'N/A')}</span>
+        ${passwordLine}
+    </div>`;
+}
+
 function appCard(a) {
     const score = Number(a.final_score || 0);
     const scoreClass = score >= 80 ? 'success-card' : score >= 65 ? 'warning-tag' : 'danger-tag';
@@ -58,6 +71,7 @@ function appCard(a) {
         <p class="muted">Review: <b>${escapeHTML(a.review_status || 'Pending Review')}</b> • Resume: ${escapeHTML(a.resume_filename || 'N/A')}</p>
         <p class="muted">Screening input: normalized TXT${a.resume_text_word_count ? ` • ${escapeHTML(a.resume_text_word_count)} words` : ''}</p>
         <div class="tag-row">${account}${a.room_code ? `<span class="tag success-card">Room: ${escapeHTML(a.room_code)}</span>` : ''}</div>
+        ${a.candidate_account_created ? candidateCredentialPanel(a, true) : ''}
         ${progressBar(a.progress)}
         <div class="tag-row">${kwTags((a.matched_keywords || []).slice(0, 8), 'success-card')}</div>
         <div class="hero-actions">
@@ -108,7 +122,7 @@ async function loadReport(id) {
     ${app.requires_interview_scheduling ? '<p class="message warning">⚠ Applicant is shortlisted but no interview room has been assigned yet.</p>' : ''}
     <div class="soft-panel"><strong>AI Recommendation:</strong> ${escapeHTML(r.recommendation)} • Confidence: ${escapeHTML(r.confidence || 'N/A')}<p>${escapeHTML(r.summary)}</p><p class="muted">Job visibility/control follows: super user sees all, creator/controllers can control, viewers can view.</p></div>
     <h3>Applicant Progress</h3>${progressBar(app.progress)}
-    <h3>Candidate Access</h3><div class="soft-panel"><p>${app.candidate_account_created ? `Candidate account created. UID: <b>${escapeHTML(app.candidate_uid || '')}</b>` : 'No candidate user account yet. Assigning an interview creates one automatically.'}</p>${app.room_code ? `<a class="btn small" href="/interview-room/${app.room_code}">Open Interview Room</a>` : ''}</div>
+    <h3>Candidate Access</h3><div class="soft-panel">${candidateCredentialPanel(app)}${app.room_code ? `<a class="btn small" href="/interview-room/${app.room_code}">Open Interview Room</a>` : ''}</div>
     <h3>Matched Keywords</h3><div class="tag-row">${kwTags(r.matched_keywords || [], 'success-card')}</div>
     <h3>Missing Keywords</h3><div class="tag-row">${kwTags(r.missing_keywords || [], 'danger-tag')}</div>
     <h3>Category Fit</h3><div class="stats-grid mini-stats compact-stats">${Object.entries(r.category_scores || {}).map(([k,v]) => `<div><span>${escapeHTML(k.replaceAll('_',' '))}</span><b>${escapeHTML(v)}</b></div>`).join('') || '<p class="empty">No category-specific JD skills detected.</p>'}</div>

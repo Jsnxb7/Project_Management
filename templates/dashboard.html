@@ -1,63 +1,138 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | PeopleOps HRMS{% endblock %}
+{% block title %}Dashboard | AI PeopleOps HRMS{% endblock %}
 
 {% block content %}
-<section class="page-head split">
+<section class="page-head split dashboard-head">
     <div>
-        <p class="eyebrow">HRMS Dashboard</p>
-        <h1 id="dashboardTitle">People Operations</h1>
-        <p class="muted" id="dashboardSubtitle">Role-aware HR, payroll, attendance, performance, and company visibility.</p>
-    </div>
-    <div class="hero-actions"><a class="btn" href="/employees">Employee Directory</a><a class="btn secondary" data-recruitment-link href="/recruitment">Recruitment AI</a></div>
-</section>
-
-<section class="details-grid">
-    <div class="panel">
-        <h2>Role and Access</h2>
-        <div class="summary-row"><span>Current Role</span><strong id="hrmsRole">Employee</strong></div>
-        <div class="summary-row"><span>Visible Employees</span><strong id="employeeScope">0</strong></div>
-        <div id="permissionList" class="role-stack"></div>
-    </div>
-    <div class="panel">
-        <h2>Attendance Snapshot</h2>
-        <div class="summary-row"><span>Present Logs</span><strong id="presentLogs">0</strong></div>
-        <div class="summary-row"><span>Late Marks</span><strong id="lateLogs">0</strong></div>
-        <div class="summary-row"><span>Absences</span><strong id="absentLogs">0</strong></div>
-        <div class="summary-row"><span>Overtime</span><strong id="overtimeLogs">0</strong></div>
-        <div class="summary-row"><span>Pending Reviews</span><strong id="attendanceReviewsPending">0</strong></div>
-    </div>
-</section>
-
-<section class="stats-grid" id="primaryStats">
-    <article class="stat-card"><span>Total Employees</span><strong id="totalEmployees">0</strong></article>
-    <article class="stat-card"><span>Active Employees</span><strong id="activeEmployees">0</strong></article>
-    <article class="stat-card"><span>Payroll Pending</span><strong id="payrollPending">0</strong></article>
-    <article class="stat-card"><span>Leave Pending</span><strong id="leavePending">0</strong></article>
-    <article class="stat-card"><span>Manager Missing</span><strong id="managerMissing">0</strong></article>
-</section>
-
-<section class="details-grid">
-    <div class="panel" id="companyPanel">
-        <h2>Company-Wide Dashboard</h2>
-        <p class="muted">Management Admin and HR leadership can see both individual and company-wide HRMS metrics.</p>
-        <div id="departmentList" class="mini-list"></div>
-    </div>
-    <div class="panel" id="rolePanel">
-        <h2 id="rolePanelTitle">Role Workspace</h2>
-        <div id="rolePanelBody" class="mini-list"></div>
-    </div>
-</section>
-
-<section class="panel">
-    <div class="split">
-        <div>
-            <h2>Recent HR Activity</h2>
-            <p class="muted">Attendance and performance updates from your permitted scope.</p>
+        <p class="eyebrow">Role-aware command center</p>
+        <h1 id="dashboardTitle">Dashboard</h1>
+        <p class="muted" id="dashboardSubtitle">Attendance, performance, payroll, people, recruitment, and system health in one simplified view.</p>
+        <div class="scope-pills">
+            <span class="status-pill info" id="dashboardRolePill">Role</span>
+            <span class="status-pill" id="dashboardScopePill">Scope</span>
         </div>
+    </div>
+    <div class="hero-actions dashboard-actions">
+        <a class="btn" href="/attendance">Attendance</a>
+        <a class="btn secondary" href="/payroll">Payroll</a>
         <a class="btn secondary" href="/performance">Performance</a>
     </div>
-    <div id="activityList" class="mini-list"></div>
+</section>
+
+<section class="dashboard-grid" id="dashboardWidgets" aria-label="Primary dashboard widgets"></section>
+
+<section class="dashboard-layout">
+    <article class="panel dashboard-card-large" id="attendancePanel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Attendance</p>
+                <h2>Today’s attendance summary</h2>
+            </div>
+            <a class="btn small secondary" href="/attendance">Open</a>
+        </div>
+        <div class="visual-row">
+            <div class="ring-widget" id="attendanceRing" style="--ring-value: 0%"><span id="attendanceRingValue">0%</span><small>Present</small></div>
+            <div class="metric-list" id="attendanceMetrics"></div>
+        </div>
+    </article>
+
+    <article class="panel dashboard-card-large" id="pendingPanel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Action queue</p>
+                <h2>Pending actions</h2>
+            </div>
+            <span class="status-pill warning" id="pendingCount">0 pending</span>
+        </div>
+        <div class="action-queue" id="pendingActions"></div>
+    </article>
+</section>
+
+<section class="dashboard-layout three-col">
+    <article class="panel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Performance</p>
+                <h2>Goal checklist status</h2>
+            </div>
+            <a class="btn small secondary" href="/performance">Open</a>
+        </div>
+        <div class="score-meter"><span id="performanceScoreBar"></span></div>
+        <div class="metric-list" id="performanceMetrics"></div>
+    </article>
+
+    <article class="panel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Payroll</p>
+                <h2>Payroll pipeline</h2>
+            </div>
+            <a class="btn small secondary" href="/payroll">Open</a>
+        </div>
+        <div class="pipeline-widget" id="payrollPipeline"></div>
+        <div class="metric-list" id="payrollMetrics"></div>
+    </article>
+
+    <article class="panel" id="peoplePanel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">People</p>
+                <h2>People overview</h2>
+            </div>
+            <a class="btn small secondary" href="/employees">Open</a>
+        </div>
+        <div class="metric-list" id="peopleMetrics"></div>
+        <div class="mini-bars" id="departmentBars"></div>
+    </article>
+</section>
+
+<section class="dashboard-layout" id="optionalDashboardPanels">
+    <article class="panel" id="recruitmentPanel" hidden>
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Recruitment</p>
+                <h2>Hiring pipeline</h2>
+            </div>
+            <a class="btn small secondary" href="/recruitment">Open</a>
+        </div>
+        <div class="metric-list" id="recruitmentMetrics"></div>
+        <div class="mini-bars" id="recruitmentBars"></div>
+    </article>
+
+    <article class="panel" id="systemPanel" hidden>
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">System</p>
+                <h2>Clean data health</h2>
+            </div>
+            <span class="status-pill success">Mirror ready</span>
+        </div>
+        <div class="metric-list" id="systemMetrics"></div>
+    </article>
+</section>
+
+<section class="dashboard-layout">
+    <article class="panel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Activity</p>
+                <h2>Recent updates</h2>
+            </div>
+        </div>
+        <div class="timeline-widget" id="recentActivity"></div>
+    </article>
+
+    <article class="panel">
+        <div class="split compact-split">
+            <div>
+                <p class="eyebrow">Notifications</p>
+                <h2>Recent notifications</h2>
+            </div>
+            <a class="btn small secondary" href="/notifications">Open</a>
+        </div>
+        <div class="timeline-widget" id="recentNotifications"></div>
+    </article>
 </section>
 {% endblock %}
 

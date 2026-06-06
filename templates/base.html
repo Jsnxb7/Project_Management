@@ -36,48 +36,51 @@
         </div>
 
         <nav class="nav-links" id="navLinks">
-            <div class="nav-group">
+            <div class="nav-group" data-nav-group="public">
                 <span class="nav-heading">Public</span>
-                <a data-guest-link href="/careers"><span class="nav-icon">◎</span><span class="nav-label">Careers</span></a>
-                <a data-guest-link href="/apply"><span class="nav-icon">✦</span><span class="nav-label">Apply</span></a>
-                <a data-guest-link href="/login"><span class="nav-icon">→</span><span class="nav-label">Login</span></a>
+                <a data-guest-link data-nav-key="careers" href="/careers"><span class="nav-icon">◎</span><span class="nav-label">Careers</span></a>
+                <a data-guest-link data-nav-key="apply" href="/apply"><span class="nav-icon">✦</span><span class="nav-label">Apply</span></a>
+                <a data-guest-link data-nav-key="login" href="/login"><span class="nav-icon">→</span><span class="nav-label">Login</span></a>
             </div>
 
-            <div class="nav-group" data-auth-link>
-                <span class="nav-heading">Workspace</span>
-                <a data-auth-link href="/dashboard"><span class="nav-icon">▣</span><span class="nav-label">Dashboard</span></a>
-                <a data-people-link href="/employees"><span class="nav-icon">◉</span><span class="nav-label">Employees</span></a>
-                <a data-auth-link href="/attendance"><span class="nav-icon">◷</span><span class="nav-label">Attendance</span></a>
-                <a data-hr-lead-link href="/payroll"><span class="nav-icon">₹</span><span class="nav-label">Payroll</span></a>
-                <a data-auth-link href="/performance"><span class="nav-icon">◇</span><span class="nav-label">Performance</span></a>
+            <div class="nav-group" data-auth-link data-nav-group="overview">
+                <span class="nav-heading">Overview</span>
+                <a data-auth-link data-nav-key="dashboard" href="/dashboard"><span class="nav-icon">▣</span><span class="nav-label">Dashboard</span></a>
             </div>
 
-            <div class="nav-group" data-recruitment-link>
-                <span class="nav-heading">Recruitment AI</span>
-                <a data-recruitment-link href="/recruitment"><span class="nav-icon">✧</span><span class="nav-label">Recruitment</span></a>
-                <a data-recruitment-link href="/applications"><span class="nav-icon">▤</span><span class="nav-label">Applications</span></a>
-                <a data-interview-link href="/interviews"><span class="nav-icon">◌</span><span class="nav-label">Interview Rooms</span></a>
-                <a data-interview-link href="/voice-interview"><span class="nav-icon">♬</span><span class="nav-label">Voice AI Lab</span></a>
+            <div class="nav-group" data-auth-link data-nav-group="people">
+                <span class="nav-heading">People</span>
+                <a data-people-link data-nav-key="employees" href="/employees"><span class="nav-icon">◉</span><span class="nav-label">Employees</span></a>
+                <a data-auth-link data-nav-key="attendance" href="/attendance"><span class="nav-icon">◷</span><span class="nav-label">Attendance</span></a>
+                <a data-auth-link data-nav-key="performance" href="/performance"><span class="nav-icon">◇</span><span class="nav-label">Performance</span></a>
+                <a data-hr-lead-link data-nav-key="payroll" href="/payroll"><span class="nav-icon">₹</span><span class="nav-label">Payroll</span></a>
             </div>
 
+            <div class="nav-group" data-recruitment-link data-nav-group="recruitment">
+                <span class="nav-heading">Recruitment</span>
+                <a data-recruitment-link data-nav-key="recruitment" href="/recruitment"><span class="nav-icon">✧</span><span class="nav-label">Recruitment</span></a>
+                <a data-recruitment-link data-nav-key="applications" href="/applications"><span class="nav-icon">▤</span><span class="nav-label">Applications</span></a>
+                <a data-interview-link data-nav-key="interviews" href="/interviews"><span class="nav-icon">◌</span><span class="nav-label">Interview Rooms</span></a>
+                <a data-interview-link data-nav-key="voice_interview" href="/voice-interview"><span class="nav-icon">♬</span><span class="nav-label">Voice AI Lab</span></a>
+            </div>
 
-            <div class="nav-group" data-candidate-link>
+            <div class="nav-group" data-candidate-link data-nav-group="candidate">
                 <span class="nav-heading">Candidate</span>
-                <a data-candidate-link href="/candidate-process"><span class="nav-icon">◈</span><span class="nav-label">My Interview Steps</span></a>
+                <a data-candidate-link data-nav-key="candidate_process" href="/candidate-process"><span class="nav-icon">◈</span><span class="nav-label">My Interview Steps</span></a>
             </div>
 
-            <div class="nav-group" data-auth-link>
-                <span class="nav-heading">Personal</span>
-                <a data-auth-link href="/themes"><span class="nav-icon">◐</span><span class="nav-label">Theme Kits</span></a>
-                <a data-auth-link href="/notifications"><span class="nav-icon">!</span><span class="nav-label">Notifications</span></a>
-                <a data-auth-link href="/messages"><span class="nav-icon">✉</span><span class="nav-label">Messages</span></a>
-                <a data-auth-link href="/profile"><span class="nav-icon">●</span><span class="nav-label">Profile</span></a>
+            <div class="nav-group" data-auth-link data-nav-group="self_service">
+                <span class="nav-heading">Self-Service</span>
+                <a data-auth-link data-nav-key="messages" href="/messages"><span class="nav-icon">✉</span><span class="nav-label">Messages</span></a>
+                <a data-auth-link data-nav-key="notifications" href="/notifications"><span class="nav-icon">!</span><span class="nav-label">Notifications</span></a>
+                <a data-auth-link data-nav-key="profile" href="/profile"><span class="nav-icon">●</span><span class="nav-label">Profile</span></a>
+                <a data-auth-link data-nav-key="themes" href="/themes"><span class="nav-icon">◐</span><span class="nav-label">Theme Kits</span></a>
             </div>
 
-            <div class="nav-group" data-admin-link>
+            <div class="nav-group" data-admin-link data-nav-group="admin">
                 <span class="nav-heading">Admin</span>
-                <a data-admin-link href="/portal/users"><span class="nav-icon">▥</span><span class="nav-label">Users</span></a>
-                <a data-super-link href="/portal/import-users"><span class="nav-icon">⇪</span><span class="nav-label">Bulk Import</span></a>
+                <a data-admin-link data-nav-key="users" href="/portal/users"><span class="nav-icon">▥</span><span class="nav-label">Users</span></a>
+                <a data-super-link data-nav-key="bulk_import" href="/portal/import-users"><span class="nav-icon">⇪</span><span class="nav-label">Bulk Import</span></a>
             </div>
         </nav>
 
@@ -94,6 +97,12 @@
     </main>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="logoutSyncOverlay" class="logout-sync-overlay" role="status" aria-live="polite" aria-hidden="true">
+        <div class="logout-sync-box">
+            <span class="logout-sync-spinner" aria-hidden="true"></span>
+            <span>Syncing data...</span>
+        </div>
+    </div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>

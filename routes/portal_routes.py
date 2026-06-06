@@ -9,7 +9,7 @@ from app import bcrypt
 from database.db import users_collection, employees_collection, notifications_collection, user_theme_collection
 from utils.response import ok, fail, warn
 from utils.validators import valid_email, valid_password
-from services.hrms_service import HRMS_ROLES, normalize_role, role_permissions, serialize_employee, to_object_id, user_role
+from services.hrms_service import HRMS_ROLES, normalize_role, role_permissions, serialize_employee, to_object_id, user_role, primary_super_user_id
 
 
 portal_bp = Blueprint("portal_bp", __name__)
@@ -21,7 +21,7 @@ def current_user():
 
 
 def can_manage_users(user):
-    return role_permissions(user_role(user)).get("can_manage_users")
+    return role_permissions(user_role(user)).get("is_super_user")
 
 
 def can_bulk_import_users(user):
@@ -332,6 +332,8 @@ def maybe_create_employee(user_id, data, name, email, role, actor_id):
     if data.get("create_employee_profile") is False:
         return
     now = datetime.now(timezone.utc)
+    manager_id = to_object_id(data.get("manager_id")) or primary_super_user_id(exclude_user_id=user_id)
+    manager_ids = [manager_id] if manager_id else []
     employees_collection.insert_one({
         "user_id": user_id,
         "employee_code": data.get("employee_code") or "",
@@ -342,7 +344,9 @@ def maybe_create_employee(user_id, data, name, email, role, actor_id):
         "designation": data.get("designation") or role,
         "joining_date": now,
         "employment_status": "Active",
-        "manager_id": to_object_id(data.get("manager_id")),
+        "manager_id": manager_id,
+        "manager_ids": manager_ids,
+        "manager_status": "assigned" if manager_ids else "missing",
         "documents": [],
         "salary": {},
         "work_history": [],

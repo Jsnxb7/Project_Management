@@ -16,7 +16,16 @@
         <input id="employeeSearch" placeholder="Search employees, departments, designations">
         <button class="btn" id="employeeSearchBtn" type="button">Search</button>
     </div>
-    <div id="employeeList" class="mini-list"></div>
+    <div class="section-stack">
+        <div>
+            <h2 id="employeeDirectoryTitle">Department Users</h2>
+            <div id="employeeList" class="mini-list"></div>
+        </div>
+        <div>
+            <h2>Assigned To You</h2>
+            <div id="assignedEmployeeList" class="mini-list"></div>
+        </div>
+    </div>
 </section>
 {% endblock %}
 

@@ -6,7 +6,7 @@ PAGE_ACCESS = {
     "/employees": lambda perms: perms.get("can_view_employees"),
     "/attendance": lambda perms: perms.get("can_view_self_service"),
     "/payroll": lambda perms: perms.get("can_view_payroll"),
-    "/performance": lambda perms: perms.get("can_review_performance") or perms.get("can_view_self_service"),
+    "/performance": lambda perms: perms.get("can_view_performance"),
     "/recruitment": lambda perms: perms.get("can_view_recruitment"),
     "/applications": lambda perms: perms.get("can_view_recruitment"),
     "/voice-interview": lambda perms: perms.get("can_run_voice_interviews"),

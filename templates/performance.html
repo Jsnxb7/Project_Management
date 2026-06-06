@@ -3,17 +3,116 @@
 {% block title %}Performance | PeopleOps HRMS{% endblock %}
 
 {% block content %}
-<section class="page-head split">
+<section class="page-head split professional-head">
     <div>
         <p class="eyebrow">Performance</p>
-        <h1>Performance Tracking</h1>
-        <p class="muted">Reviews, manager ratings, KPI tracking, goals, feedback, and promotion recommendations.</p>
+        <h1>Simple Goals & Checklist Reviews</h1>
+        <p class="muted">Managers assign goals with checklists. Employees check completed items. Assigned managers verify them, which updates performance score and creates payroll additions or deductions.</p>
+        <div class="page-meta-row">
+            <span class="status-pill">Checklist based</span>
+            <span class="status-pill">Manager verified</span>
+            <span class="status-pill">Payroll linked</span>
+        </div>
     </div>
+    <button class="btn secondary" id="refreshPerformanceBtn" type="button">Refresh</button>
 </section>
 
-<section class="panel">
-    <h2>Review Workspace</h2>
-    <div id="performanceSummary" class="mini-list"></div>
+<section class="stat-grid compact-stat-grid" aria-live="polite">
+    <article class="stat-card"><span>Total Goals</span><strong id="perfGoalCount">0</strong><small>Visible to your role</small></article>
+    <article class="stat-card"><span>Submitted</span><strong id="perfSubmittedCount">0</strong><small>Employee checked items</small></article>
+    <article class="stat-card"><span>Completed</span><strong id="perfCompletedCount">0</strong><small>Manager verified</small></article>
+    <article class="stat-card"><span>Needs Improvement</span><strong id="perfIssueCount">0</strong><small>Rejected checklist items</small></article>
+</section>
+
+<section class="tabbed-page simple-hrms-page" id="performanceApp">
+    <div class="panel tab-toolbar" role="tablist" aria-label="Performance sections">
+        <button class="tab-btn active" data-tab-target="my-goals" type="button">My / Team Goals</button>
+        <button class="tab-btn manager-only" data-tab-target="assign-goals" type="button">Assign Goals</button>
+        <button class="tab-btn template-admin-only" data-tab-target="templates" type="button">Templates</button>
+        <button class="tab-btn" data-tab-target="how-it-works" type="button">Rules</button>
+    </div>
+
+    <section class="panel" data-tab-panel="my-goals">
+        <div class="section-title split">
+            <div>
+                <h2>Goals and Checklists</h2>
+                <p class="muted">Employees can check their own checklist items. Assigned managers and Super User can verify or reject checked items.</p>
+            </div>
+            <div class="filter-row">
+                <label class="field-shell compact">Search Goals
+                    <input id="goalSearch" type="search" placeholder="Search employee or goal title">
+                </label>
+            </div>
+        </div>
+        <div id="goalList" class="record-list"><div class="empty-state">Loading goals...</div></div>
+    </section>
+
+    <section class="panel" data-tab-panel="assign-goals" hidden>
+        <div class="section-title"><h2>Assign Goal to Employees</h2><p class="muted">Select one or more employees, use a template or type a custom checklist, and define payroll impact before assigning.</p></div>
+        <form id="assignGoalForm" class="form-grid labelled-form">
+            <label class="field-shell full-span">Employees
+                <select name="employee_ids" id="goalEmployeeSelect" multiple required></select>
+                <small class="field-help">Managers can select only assigned employees. Super User can select all employees.</small>
+            </label>
+            <label class="field-shell">Use Template
+                <select name="template_id" id="goalTemplateSelect"><option value="">Custom goal</option></select>
+                <small class="field-help">Selecting a template fills the title, checklist, bonus, and penalty.</small>
+            </label>
+            <label class="field-shell">Review Month
+                <input name="cycle_key" type="month" required>
+                <small class="field-help">The month this goal affects.</small>
+            </label>
+            <label class="field-shell full-span">Goal Title
+                <input name="title" id="goalTitleInput" placeholder="Example: Complete monthly delivery checklist" required>
+            </label>
+            <label class="field-shell full-span">Goal Description
+                <textarea name="description" id="goalDescriptionInput" rows="2" placeholder="Explain what successful completion means."></textarea>
+            </label>
+            <label class="field-shell full-span">Checklist Items
+                <textarea name="checklist_items" id="goalChecklistInput" rows="5" placeholder="Write one checklist item per line" required></textarea>
+                <small class="field-help">Employees check these items. Managers verify them one by one.</small>
+            </label>
+            <label class="field-shell">Bonus if Completed
+                <input name="bonus_amount" id="goalBonusInput" type="number" min="0" step="0.01" placeholder="1500">
+                <small class="field-help">Added to payroll after all checklist items are verified.</small>
+            </label>
+            <label class="field-shell">Penalty if Rejected
+                <input name="penalty_amount" id="goalPenaltyInput" type="number" min="0" step="0.01" placeholder="500">
+                <small class="field-help">Deducted from payroll if checklist work is rejected.</small>
+            </label>
+            <button class="btn" type="submit">Assign Goal</button>
+            <p class="message" id="assignGoalMessage"></p>
+        </form>
+    </section>
+
+    <section class="panel" data-tab-panel="templates" hidden>
+        <div class="section-title split"><div><h2>Goal Templates</h2><p class="muted">Templates can be assigned as-is to selected employees.</p></div></div>
+        <div id="templateList" class="goal-template-grid"></div>
+        <details class="soft-panel create-template-box">
+            <summary>Create New Template</summary>
+            <form id="templateForm" class="form-grid labelled-form">
+                <label class="field-shell">Template Name<input name="name" required placeholder="Engineering monthly checklist"></label>
+                <label class="field-shell">Department<input name="department" placeholder="Engineering"></label>
+                <label class="field-shell full-span">Goal Title<input name="goal_title" required placeholder="Complete monthly engineering checklist"></label>
+                <label class="field-shell full-span">Description<textarea name="description" rows="2"></textarea></label>
+                <label class="field-shell full-span">Checklist Items<textarea name="checklist_items" rows="4" placeholder="One item per line" required></textarea></label>
+                <label class="field-shell">Default Bonus<input name="bonus_amount" type="number" min="0" step="0.01"></label>
+                <label class="field-shell">Default Penalty<input name="penalty_amount" type="number" min="0" step="0.01"></label>
+                <button class="btn secondary" type="submit">Save Template</button>
+                <p class="message" id="templateMessage"></p>
+            </form>
+        </details>
+    </section>
+
+    <section class="panel" data-tab-panel="how-it-works" hidden>
+        <div class="section-title"><h2>Simple Performance Rules</h2><p class="muted">The new system intentionally avoids complex ratings and uses clear checklist verification.</p></div>
+        <div class="grid-two">
+            <article class="soft-panel"><h3>Employee Flow</h3><p>Open a goal, check completed checklist items, and optionally add a note.</p></article>
+            <article class="soft-panel"><h3>Manager Flow</h3><p>Review checked items, verify or reject each item, and let the score update automatically.</p></article>
+            <article class="soft-panel"><h3>Score Rule</h3><p>Score = verified checklist items ÷ total checklist items × 100.</p></article>
+            <article class="soft-panel"><h3>Payroll Rule</h3><p>Completed goals create bonus additions. Rejected goals create penalty deductions. Managers/Super User can include or exclude them in payroll.</p></article>
+        </div>
+    </section>
 </section>
 {% endblock %}
 

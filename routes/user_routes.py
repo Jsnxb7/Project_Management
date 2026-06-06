@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import bcrypt
-from database.db import users_collection, employees_collection, attendance_collection, payroll_collection, performance_reviews_collection
+from database.db import users_collection, employees_collection, attendance_collection, hrms_payroll_items_collection, hrms_performance_goals_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
 from services.hrms_service import current_employee_for_user, normalize_role, serialize_employee, to_object_id
@@ -43,8 +43,8 @@ def get_profile():
         "employee": serialize_employee(employee),
         "stats": {
             "attendance_logs": attendance_collection.count_documents(query),
-            "payslips": payroll_collection.count_documents(query),
-            "performance_reviews": performance_reviews_collection.count_documents(query),
+            "payslips": hrms_payroll_items_collection.count_documents(query),
+            "performance_reviews": hrms_performance_goals_collection.count_documents(query),
         },
         "recent_activity": [],
     })

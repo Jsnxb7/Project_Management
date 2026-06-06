@@ -124,14 +124,10 @@ def create_app():
 
     @app.route("/login")
     def login_page():
-        if session.get("user_id"):
-            return redirect(url_for("dashboard_page"))
         return render_template("login.html")
 
     @app.route("/signup")
     def signup_page():
-        if session.get("user_id"):
-            return redirect(url_for("dashboard_page"))
         return render_template("signup.html")
 
     @app.route("/dashboard")
