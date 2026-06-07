@@ -5,6 +5,36 @@ function setText(id, value) { const el = document.getElementById(id); if (el) el
 function moneyText(value) { return `INR ${Number(value || 0).toLocaleString("en-IN")}`; }
 function selectedValues(select) { return Array.from(select?.selectedOptions || []).map(o => o.value).filter(Boolean); }
 let payrollState = { employees: [], items: [], adjustments: [], profiles: [], permissions: {}, summary: {} };
+let payrollItemPage = 1;
+let adjustmentPage = 1;
+let profilePage = 1;
+const payrollClientLimit = 10;
+const adjustmentClientLimit = 10;
+const profileClientLimit = 12;
+
+function clientSlice(rows, page, limit) {
+    const total = (rows || []).length;
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(Math.max(1, page), pages);
+    return {
+        rows: (rows || []).slice((safePage - 1) * limit, safePage * limit),
+        meta: { page: safePage, limit, total, pages, has_prev: safePage > 1, has_next: safePage < pages }
+    };
+}
+
+function renderClientPager(targetId, meta, noun, prev, next) {
+    const box = document.getElementById(targetId);
+    if (!box) return;
+    if (!meta.total || meta.pages <= 1) {
+        box.innerHTML = meta.total ? `<span class="muted">Showing ${escapeHTML(meta.total)} ${escapeHTML(noun)}</span>` : "";
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? "" : "disabled"} data-prev>Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} - ${escapeHTML(meta.total)} ${escapeHTML(noun)}</span>
+        <button class="btn small secondary" ${meta.has_next ? "" : "disabled"} data-next>Next</button>`;
+    box.querySelector("[data-prev]")?.addEventListener("click", prev);
+    box.querySelector("[data-next]")?.addEventListener("click", next);
+}
 
 function applyPayrollPermissions() {
     const p = payrollState.permissions || {};
@@ -55,12 +85,24 @@ function renderPayroll() {
     setText("payrollPendingCount", payrollState.summary?.pending_manager || 0);
     setText("payrollPaidCount", payrollState.summary?.paid || 0);
     setText("payrollAdjustmentCount", payrollState.summary?.adjustments || 0);
+
     const payrollList = document.getElementById("payrollList");
-    if (payrollList) payrollList.innerHTML = payrollState.items?.length ? payrollState.items.map(payrollCard).join("") : `<div class="empty-state">No payroll records yet.</div>`;
+    const payrollPage = clientSlice(payrollState.items || [], payrollItemPage, payrollClientLimit);
+    payrollItemPage = payrollPage.meta.page;
+    if (payrollList) payrollList.innerHTML = payrollPage.rows.length ? payrollPage.rows.map(payrollCard).join("") : `<div class="empty-state">No payroll records yet.</div>`;
+    renderClientPager("payrollPagination", payrollPage.meta, "payroll records", () => { payrollItemPage = Math.max(1, payrollItemPage - 1); renderPayroll(); }, () => { payrollItemPage += 1; renderPayroll(); });
+
     const adjList = document.getElementById("adjustmentList");
-    if (adjList) adjList.innerHTML = payrollState.adjustments?.length ? payrollState.adjustments.map(adjustmentCard).join("") : `<div class="empty-state">No additions or deductions are available yet. Generate payroll after attendance/performance verification.</div>`;
+    const adjPage = clientSlice(payrollState.adjustments || [], adjustmentPage, adjustmentClientLimit);
+    adjustmentPage = adjPage.meta.page;
+    if (adjList) adjList.innerHTML = adjPage.rows.length ? adjPage.rows.map(adjustmentCard).join("") : `<div class="empty-state">No additions or deductions are available yet. Generate payroll after attendance/performance verification.</div>`;
+    renderClientPager("adjustmentPagination", adjPage.meta, "adjustments", () => { adjustmentPage = Math.max(1, adjustmentPage - 1); renderPayroll(); }, () => { adjustmentPage += 1; renderPayroll(); });
+
     const profileList = document.getElementById("profileList");
-    if (profileList) profileList.innerHTML = payrollState.profiles?.length ? payrollState.profiles.map(profileCard).join("") : `<div class="empty-state">No salary profiles configured yet.</div>`;
+    const profPage = clientSlice(payrollState.profiles || [], profilePage, profileClientLimit);
+    profilePage = profPage.meta.page;
+    if (profileList) profileList.innerHTML = profPage.rows.length ? profPage.rows.map(profileCard).join("") : `<div class="empty-state">No salary profiles configured yet.</div>`;
+    renderClientPager("profilePagination", profPage.meta, "salary profiles", () => { profilePage = Math.max(1, profilePage - 1); renderPayroll(); }, () => { profilePage += 1; renderPayroll(); });
 }
 
 async function loadPayroll() {
@@ -69,6 +111,7 @@ async function loadPayroll() {
     const data = await res.json();
     if (!data.success) { toast(data.message || "Could not load payroll", false, data.warning); return; }
     payrollState = data.data || payrollState;
+    payrollItemPage = 1; adjustmentPage = 1; profilePage = 1;
     applyPayrollPermissions();
     fillPayrollSelects();
     renderPayroll();

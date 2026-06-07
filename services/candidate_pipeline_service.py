@@ -181,14 +181,26 @@ def available_actions(app, room, result, phase):
     phase_name = phase.get("candidate_phase")
     status = phase.get("phase_status")
     actions = []
+    if phase_name == "employee_created" or app.get("employee_created"):
+        if app.get("room_code"):
+            actions.extend(["open_room", "view_ai_report"])
+        return list(dict.fromkeys(actions))
     if app.get("room_code"):
         actions.append("open_room")
     if phase_name == "ai_interview" and status in {"room_not_configured", "ready", "in_progress"}:
         actions.append("configure_ai_room")
     if result:
-        actions.extend(["view_ai_report", "move_to_human_interview", "create_employee", "reject"])
+        actions.extend(["view_ai_report", "move_to_human_interview", "reject"])
+        recommendation = str((result or {}).get("recommendation") or app.get("ai_interview_recommendation") or "").lower()
+        decision_value = str((result or {}).get("decision") or "").lower()
+        manual_shortlisted = bool(app.get("ai_manual_override") or decision_value == "manual_shortlist" or "manually shortlisted" in str(app.get("second_round_status") or "").lower())
+        ai_positive = any(word in recommendation for word in ["shortlist", "select", "hire", "recommend"]) and "reject" not in recommendation
+        if manual_shortlisted or ai_positive:
+            actions.append("create_employee")
     if phase_name == "human_interview":
         actions.extend(["open_human_room", "assign_interviewer", "mark_selected", "reject"])
+        if app.get("ai_manual_override") or "manually shortlisted" in str(app.get("second_round_status") or "").lower():
+            actions.append("create_employee")
     if phase_name in {"screening", "ai_interview"} and not app.get("room_code"):
         actions.append("move_to_ai")
     return list(dict.fromkeys(actions))
@@ -302,34 +314,105 @@ def reject_candidate(application_id: str, actor_user_id=None, notes=None):
     return get_pipeline_candidate(application_id)
 
 
+def _next_employee_code(app_id: ObjectId, payload: Dict[str, Any], app: Dict[str, Any]) -> str:
+    existing_code = payload.get("employee_code") or app.get("employee_code")
+    if existing_code:
+        return str(existing_code).strip()
+    return f"EMP-{str(app_id)[-6:].upper()}"
+
+
+def _candidate_user_for_app(app: Dict[str, Any]):
+    candidate_user_id = to_object_id(app.get("candidate_user_id"))
+    user = users_collection.find_one({"_id": candidate_user_id}) if candidate_user_id else None
+    if not user and app.get("candidate_email"):
+        user = users_collection.find_one({"email": str(app.get("candidate_email")).strip().lower()})
+    return user
+
+
 def create_employee_from_candidate(application_id: str, actor_user_id=None, payload: Optional[Dict[str, Any]] = None):
     payload = payload or {}
     oid = to_object_id(application_id)
     app = applications_collection.find_one({"_id": oid}) if oid else None
     if not app:
         raise ValueError("Application not found")
-    existing = employees_collection.find_one({"source_application_id": oid})
+
+    now_value = utcnow()
+    job = _get_job(app.get("job_id")) or {}
+    candidate_user = _candidate_user_for_app(app)
+    if not candidate_user:
+        raise ValueError("Candidate user account is missing. Create/link the candidate account before employee conversion.")
+
+    employee_code = _next_employee_code(oid, payload, app)
+    employee_email = (payload.get("email") or candidate_user.get("email") or app.get("candidate_email") or "").strip().lower()
+    existing = employees_collection.find_one({"$or": [
+        {"user_id": candidate_user["_id"]},
+        {"candidate_user_id": candidate_user["_id"]},
+        {"email": employee_email},
+        {"source_application_id": oid},
+        {"candidate_application_id": oid},
+    ]})
+
+    employee_doc = {
+        "user_id": candidate_user["_id"],
+        "candidate_user_id": candidate_user["_id"],
+        "candidate_uid": app.get("candidate_uid") or candidate_user.get("candidate_uid"),
+        "employee_code": employee_code,
+        "employee_id": employee_code,
+        "name": (payload.get("name") or app.get("candidate_name") or candidate_user.get("name") or "Employee").strip(),
+        "email": employee_email,
+        "phone": (payload.get("phone") or app.get("phone") or "").strip(),
+        "department": (payload.get("department") or job.get("department") or "Unassigned").strip(),
+        "designation": (payload.get("designation") or payload.get("role_title") or app.get("job_title") or job.get("title") or "Employee").strip(),
+        "joining_date": payload.get("joining_date") or now_value,
+        "employment_status": payload.get("employment_status") or "Active",
+        "documents": payload.get("documents") or [],
+        "salary": payload.get("salary") or {},
+        "work_history": payload.get("work_history") or [{"title": "Converted from candidate pipeline", "application_id": oid, "at": now_value}],
+        "source": "Candidate Pipeline",
+        "source_application_id": oid,
+        "candidate_application_id": oid,
+        "ai_interview_score": app.get("ai_interview_score"),
+        "created_by": to_object_id(actor_user_id) if actor_user_id else None,
+        "updated_at": now_value,
+        "status": "Active",
+    }
     if existing:
-        employee_id = existing.get("employee_id") or str(existing.get("_id"))
+        employee_doc["created_at"] = existing.get("created_at") or now_value
+        employees_collection.update_one({"_id": existing["_id"]}, {"$set": employee_doc})
+        employee_object_id = existing["_id"]
     else:
-        employee_id = payload.get("employee_id") or f"EMP-{str(oid)[-6:].upper()}"
-        doc = {
-            "employee_id": employee_id,
-            "name": payload.get("name") or app.get("candidate_name"),
-            "email": payload.get("email") or app.get("candidate_email"),
-            "phone": payload.get("phone") or app.get("phone"),
-            "role_title": payload.get("role_title") or app.get("job_title"),
-            "source_application_id": oid,
-            "candidate_user_id": app.get("candidate_user_id"),
-            "candidate_uid": app.get("candidate_uid"),
-            "ai_interview_score": app.get("ai_interview_score"),
-            "created_by": to_object_id(actor_user_id) if actor_user_id else None,
-            "created_at": utcnow(),
-            "updated_at": utcnow(),
-            "status": "Active",
-        }
-        employees_collection.insert_one(doc)
-    applications_collection.update_one({"_id": oid}, {"$set": {"status": "Selected", "review_status": "Employee Created", "selection_stage": "Employee Created", "employee_id": employee_id, "candidate_phase": "employee_created", "phase_status": "completed", "candidate_pipeline.candidate_phase": "employee_created", "candidate_pipeline.phase_status": "completed", "candidate_pipeline.final_decision": {"status": "employee_created", "decided_by": as_str(actor_user_id), "decided_at": utcnow(), "employee_id": employee_id}, "updated_at": utcnow()}})
+        employee_doc["created_at"] = now_value
+        inserted = employees_collection.insert_one(employee_doc)
+        employee_object_id = inserted.inserted_id
+
+    # Promote the login account from Candidate to Employee so the next login opens employee/self-service pages.
+    users_collection.update_one({"_id": candidate_user["_id"]}, {"$set": {
+        "hrms_role": "Employee",
+        "portal_role": "Employee",
+        "role": "Employee",
+        "employee_id": employee_object_id,
+        "employee_code": employee_code,
+        "employee_login_email": employee_email,
+        "candidate_selected": True,
+        "must_change_password": False,
+        "updated_at": now_value,
+    }})
+
+    applications_collection.update_one({"_id": oid}, {"$set": {
+        "status": "Selected",
+        "review_status": "Employee Created",
+        "selection_stage": "Employee Created",
+        "employee_created": True,
+        "employee_id": employee_object_id,
+        "employee_code": employee_code,
+        "employee_login_email": employee_email,
+        "candidate_phase": "employee_created",
+        "phase_status": "completed",
+        "candidate_pipeline.candidate_phase": "employee_created",
+        "candidate_pipeline.phase_status": "completed",
+        "candidate_pipeline.final_decision": {"status": "employee_created", "decided_by": as_str(actor_user_id), "decided_at": now_value, "employee_id": as_str(employee_object_id)},
+        "updated_at": now_value,
+    }})
     return get_pipeline_candidate(application_id)
 
 

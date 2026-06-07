@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 
@@ -22,13 +22,33 @@ def notification_public(notification):
     }
 
 
+def _page_args(default_limit=20, max_limit=100):
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = max(1, min(int(request.args.get("limit", default_limit)), max_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    return page, limit, (page - 1) * limit
+
+
+def _meta(total, page, limit):
+    pages = max(1, (int(total or 0) + limit - 1) // limit)
+    return {"page": page, "limit": limit, "total": int(total or 0), "pages": pages, "has_next": page < pages, "has_prev": page > 1}
+
+
 @notification_bp.get("")
 @jwt_required()
 def get_notifications():
     user_id = ObjectId(get_jwt_identity())
+    page, limit, skip = _page_args(default_limit=20, max_limit=100)
+    query = {"user_id": user_id}
 
+    total = notifications_collection.count_documents(query)
     notifications = list(
-        notifications_collection.find({"user_id": user_id}).sort("created_at", -1).limit(50)
+        notifications_collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
     )
 
     unread_count = notifications_collection.count_documents({
@@ -39,6 +59,7 @@ def get_notifications():
     return ok("Notifications fetched", {
         "notifications": [notification_public(n) for n in notifications],
         "unread_count": unread_count,
+        "meta": _meta(total, page, limit),
     })
 
 

@@ -159,6 +159,24 @@ def serialize_message(row, me_user_id=None):
 
 
 
+def page_args(default_limit=25, max_limit=100):
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = max(1, min(int(request.args.get("limit", default_limit)), max_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    return page, limit, (page - 1) * limit
+
+
+def pagination_meta(total, page, limit):
+    pages = max(1, (int(total or 0) + limit - 1) // limit)
+    return {"page": page, "limit": limit, "total": int(total or 0), "pages": pages, "has_next": page < pages, "has_prev": page > 1}
+
+
+
 @hrms_bp.get("/ui-shell")
 @jwt_required()
 def ui_shell():
@@ -879,22 +897,35 @@ def list_message_conversations():
     if not role_permissions(user_role(user)).get("can_message_employees"):
         return warn("Warning: your HRMS role cannot use employee messages.")
 
-    rows = list(hrms_messages_collection.find({"participant_user_ids": user["_id"]}).sort("updated_at", -1).limit(100))
-    conversations = {}
-    for row in rows:
-        key = row.get("conversation_key")
-        if key in conversations:
-            continue
+    page, limit, skip = page_args(default_limit=20, max_limit=50)
+    match = {"participant_user_ids": user["_id"]}
+    count_rows = list(hrms_messages_collection.aggregate([
+        {"$match": match},
+        {"$group": {"_id": "$conversation_key"}},
+        {"$count": "total"},
+    ]))
+    total = count_rows[0]["total"] if count_rows else 0
+    rows = list(hrms_messages_collection.aggregate([
+        {"$match": match},
+        {"$sort": {"updated_at": -1, "created_at": -1}},
+        {"$group": {"_id": "$conversation_key", "last": {"$first": "$$ROOT"}}},
+        {"$sort": {"last.updated_at": -1, "last.created_at": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+    ]))
+    conversations = []
+    for grouped in rows:
+        row = grouped.get("last") or {}
         participant_ids = [pid for pid in row.get("participant_user_ids", []) if pid != user["_id"]]
         other_user_id = participant_ids[0] if participant_ids else row.get("receiver_user_id")
         other_employee = employees_collection.find_one({"user_id": other_user_id}) if other_user_id else None
-        conversations[key] = {
-            "conversation_key": key,
+        conversations.append({
+            "conversation_key": row.get("conversation_key"),
             "employee": message_employee_summary(other_employee),
             "last_message": serialize_message(row, user["_id"]),
             "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
-        }
-    return ok("Conversations fetched", {"conversations": list(conversations.values())})
+        })
+    return ok("Conversations fetched", {"conversations": conversations, "meta": pagination_meta(total, page, limit)})
 
 
 @hrms_bp.get("/messages/<employee_id>")
@@ -919,8 +950,12 @@ def list_messages(employee_id):
         return warn("Warning: you can only message employees in your allowed department or team scope.")
 
     key = conversation_key_for(user["_id"], target["user_id"])
-    rows = list(hrms_messages_collection.find({"conversation_key": key}).sort("created_at", 1).limit(200))
-    return ok("Messages fetched", {"employee": message_employee_summary(target), "messages": [serialize_message(row, user["_id"]) for row in rows]})
+    page, limit, skip = page_args(default_limit=50, max_limit=100)
+    query = {"conversation_key": key}
+    total = hrms_messages_collection.count_documents(query)
+    rows = list(hrms_messages_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+    rows.reverse()
+    return ok("Messages fetched", {"employee": message_employee_summary(target), "messages": [serialize_message(row, user["_id"]) for row in rows], "meta": pagination_meta(total, page, limit)})
 
 
 @hrms_bp.post("/messages/<employee_id>")

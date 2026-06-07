@@ -638,6 +638,11 @@ def decision(room_code: str, action: str, decided_by=None, interviewer_user_id=N
             "personal_interviewer_user_id": interviewer_user_id,
             "personal_interview_scheduled_at": scheduled_at,
             "personal_interview_notes": notes,
+            "candidate_phase": "human_interview",
+            "phase_status": "scheduled",
+            "candidate_pipeline.candidate_phase": "human_interview",
+            "candidate_pipeline.phase_status": "scheduled",
+            "candidate_pipeline.final_decision": {"status": "manually_shortlisted" if manual_override else "ai_shortlisted", "decided_by": as_str(decided_by), "decided_at": utcnow(), "employee_id": None},
         })
         session_updates.update({
             "current_interview_phase": phase,

@@ -1,5 +1,7 @@
 (function () {
   let roomCode = "";
+  let currentApplication = {};
+  let latestResult = null;
 
   function apiUrl(path) { return `/api/ai-interview/rooms/${roomCode}${path}`; }
 
@@ -11,6 +13,7 @@
       const config = data.config || data.ai_config || data;
       const room = data.room || config.room || {};
       const app = data.application || config.application || {};
+      currentApplication = app || {};
       document.getElementById("cfgCandidateName").textContent = iv2.safe(config.candidate_name || app.candidate_name || room.candidate_name);
       document.getElementById("cfgJobTitle").textContent = iv2.safe(config.job_title || app.job_title || room.job_title);
       document.getElementById("cfgInterviewDate").textContent = iv2.safe(config.ai_interview_date || config.scheduled_date || room.scheduled_date || "Not set");
@@ -22,6 +25,7 @@
       renderQuestions(config.forced_questions || data.forced_questions || []);
       await loadReport(false);
       await loadRecordings(false);
+      updateCreateEmployeeButton(latestResult);
     } catch (err) {
       if (err.status === 403) {
         window.location.replace(`/rooms/${encodeURIComponent(roomCode)}/ai-interview`);
@@ -105,10 +109,13 @@
       const result = payload.result || res.result || payload || null;
       const transcript = payload.transcript || result?.transcript || null;
       if (!result) return;
+      latestResult = result;
       const box = document.getElementById("cfgResultSummary");
       const recommendation = String(result.recommendation || "manual_review").replaceAll("_", " ");
       const decision = result.decision ? `<br><strong>Controller Decision:</strong> ${iv2.safe(String(result.decision).replaceAll("_", " "))}` : "";
-      box.innerHTML = `<strong>Overall Score:</strong> ${iv2.safe(result.overall_score)}<br><strong>AI Recommendation:</strong> ${iv2.safe(recommendation)}${decision}<br><span class="iv2-muted">${escapeHtml(result.summary || "")}</span><div class="iv2-mini" style="margin-top:8px">Manual Shortlist is available for controller override even when the AI recommendation is reject/manual review.</div>`;
+      const canCreate = canCreateEmployeeFromResult(result);
+      box.innerHTML = `<strong>Overall Score:</strong> ${iv2.safe(result.overall_score)}<br><strong>AI Recommendation:</strong> ${iv2.safe(recommendation)}${decision}<br><span class="iv2-muted">${escapeHtml(result.summary || "")}</span><div class="iv2-mini" style="margin-top:8px">Manual Shortlist is available for controller override even when the AI recommendation is reject/manual review. ${canCreate ? "Create Employee is now active." : "Create Employee unlocks after manual shortlist."}</div>`;
+      updateCreateEmployeeButton(result);
       renderRecordings(result.interview_recordings || result.recordings || []);
       if (transcript) renderTranscript(transcript);
       else await loadTranscript(false);
@@ -194,6 +201,55 @@
     }
   }
 
+
+  function canCreateEmployeeFromResult(result) {
+    const decision = String(result?.decision || "").toLowerCase();
+    const finalStatus = String(currentApplication?.final_decision?.status || "").toLowerCase();
+    const phase = String(currentApplication?.candidate_pipeline?.candidate_phase || currentApplication?.candidate_phase || "").toLowerCase();
+    return Boolean(
+      decision === "manual_shortlist" ||
+      currentApplication?.ai_manual_override === true ||
+      currentApplication?.manual_override === true ||
+      finalStatus === "manually_shortlisted" ||
+      (phase !== "employee_created" && String(currentApplication?.second_round_status || "").toLowerCase().includes("manually shortlisted"))
+    );
+  }
+
+  function updateCreateEmployeeButton(result) {
+    const btn = document.getElementById("cfgCreateEmployeeBtn");
+    if (!btn) return;
+    const phase = String(currentApplication?.candidate_pipeline?.candidate_phase || currentApplication?.candidate_phase || "").toLowerCase();
+    const employeeCreated = phase === "employee_created" || currentApplication?.employee_created === true || String(currentApplication?.final_decision?.status || "").toLowerCase() === "employee_created" || String(result?.decision || "").toLowerCase() === "employee_created";
+    if (employeeCreated) {
+      btn.disabled = true;
+      btn.textContent = "Employee Created";
+      btn.title = "This candidate has already been converted to an employee.";
+      return;
+    }
+    const enabled = canCreateEmployeeFromResult(result);
+    btn.disabled = !enabled;
+    btn.textContent = "Create Employee";
+    btn.title = enabled ? "Create/link employee record and change this candidate user role to Employee." : "Manual shortlist first, then create employee.";
+  }
+
+  async function createEmployeeFromAiReport() {
+    if (!canCreateEmployeeFromResult(latestResult)) {
+      alert("Manual shortlist this candidate first, then create the employee profile.");
+      return;
+    }
+    if (!confirm("Create/link employee record and change this candidate user role to Employee?")) return;
+    iv2.showLoader("Creating employee", "Promoting candidate account to Employee...");
+    try {
+      await iv2.api(apiUrl("/create-employee"), { method: "POST", body: JSON.stringify({}) });
+      iv2.toast("Employee created and candidate role changed to Employee");
+      await loadConfig();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      iv2.hideLoader();
+    }
+  }
+
   async function decision(action) {
     iv2.showLoader("Saving decision", "Updating candidate pipeline...");
     try { await iv2.api(apiUrl("/decision"), { method: "POST", body: JSON.stringify({ action }) }); await loadConfig(); }
@@ -219,6 +275,7 @@
     document.getElementById("cfgFinalizeBtn")?.addEventListener("click", finalizeRoom);
     document.getElementById("cfgViewReportBtn")?.addEventListener("click", () => loadReport(true));
     document.getElementById("cfgManualShortlistBtn")?.addEventListener("click", () => decision("manual_shortlist"));
+    document.getElementById("cfgCreateEmployeeBtn")?.addEventListener("click", createEmployeeFromAiReport);
     document.getElementById("cfgMovePersonalBtn")?.addEventListener("click", () => decision("move_to_personal_interview"));
     document.getElementById("cfgMoveHrBtn")?.addEventListener("click", () => decision("move_to_hr_interview"));
     document.getElementById("cfgRejectBtn")?.addEventListener("click", () => decision("reject"));

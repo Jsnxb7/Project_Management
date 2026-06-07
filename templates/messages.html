@@ -19,8 +19,10 @@
         </div>
         <h2>Existing Chats</h2>
         <div id="conversationList" class="mini-list"></div>
+        <div id="conversationPagination" class="pagination-bar"></div>
         <h2>Start New Chat</h2>
         <div id="messageEmployeeList" class="mini-list"></div>
+        <div id="messageEmployeePagination" class="pagination-bar"></div>
     </aside>
 
     <section class="panel message-thread-panel">
@@ -32,6 +34,7 @@
             </div>
         </div>
         <div id="messageThread" class="message-thread empty-state">No conversation selected.</div>
+        <div id="messageThreadPagination" class="pagination-bar"></div>
         <form id="messageForm" class="message-compose" hidden>
             <input id="messageInput" placeholder="Type a message..." autocomplete="off">
             <button class="btn" type="submit">Send</button>

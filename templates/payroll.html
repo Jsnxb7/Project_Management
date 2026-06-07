@@ -36,11 +36,13 @@
     <section class="panel" data-tab-panel="payroll-list">
         <div class="section-title split"><div><h2>Payroll Records</h2><p class="muted">Employees see only their payroll. Managers see self and assigned employees. Finance/Super User see all records.</p></div></div>
         <div id="payrollList" class="record-list"><div class="empty-state">Loading payroll...</div></div>
+        <div id="payrollPagination" class="pagination-bar"></div>
     </section>
 
     <section class="panel" data-tab-panel="adjustments" hidden>
         <div class="section-title"><h2>Payroll Additions & Deductions</h2><p class="muted">Uncheck items that should not affect payout. Performance and attendance impacts are listed separately.</p></div>
         <div id="adjustmentList" class="record-list"><div class="empty-state">Loading additions and deductions...</div></div>
+        <div id="adjustmentPagination" class="pagination-bar"></div>
     </section>
 
     <section class="panel" data-tab-panel="generate" hidden>
@@ -118,6 +120,7 @@
             <p class="message" id="bulkProfileMessage"></p>
         </form>
         <div id="profileList" class="record-list"></div>
+        <div id="profilePagination" class="pagination-bar"></div>
     </section>
 
     <section class="panel" data-tab-panel="rules" hidden>

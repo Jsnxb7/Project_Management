@@ -1176,11 +1176,15 @@ def create_employee_from_candidate(application_id):
         result = employees_collection.insert_one(employee_doc)
         employee_id = result.inserted_id
     users_collection.update_one({"_id": candidate_user["_id"]}, {"$set": {
+        "hrms_role": "Employee",
+        "portal_role": "Employee",
+        "role": "Employee",
         "employee_id": employee_id,
         "employee_code": employee_code,
         "employee_login_email": employee_doc["email"],
         "employee_temp_password": employee_login_password,
         "candidate_selected": True,
+        "must_change_password": False,
         "updated_at": now_value,
     }})
     applications_collection.update_one({"_id": app_id}, {"$set": {

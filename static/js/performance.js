@@ -5,6 +5,31 @@ function setText(id, value) { const el = document.getElementById(id); if (el) el
 function moneyText(value) { return `₹${Number(value || 0).toLocaleString("en-IN")}`; }
 function getSelectedValues(select) { return Array.from(select?.selectedOptions || []).map(o => o.value).filter(Boolean); }
 let performanceState = { employees: [], templates: [], goals: [], permissions: {} };
+let goalPage = 1;
+let templatePage = 1;
+const goalClientLimit = 8;
+const templateClientLimit = 8;
+
+function clientSlice(rows, page, limit) {
+    const total = (rows || []).length;
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(Math.max(1, page), pages);
+    return { rows: (rows || []).slice((safePage - 1) * limit, safePage * limit), meta: { page: safePage, limit, total, pages, has_prev: safePage > 1, has_next: safePage < pages } };
+}
+
+function renderClientPager(targetId, meta, noun, prev, next) {
+    const box = document.getElementById(targetId);
+    if (!box) return;
+    if (!meta.total || meta.pages <= 1) {
+        box.innerHTML = meta.total ? `<span class="muted">Showing ${escapeHTML(meta.total)} ${escapeHTML(noun)}</span>` : "";
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? "" : "disabled"} data-prev>Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} - ${escapeHTML(meta.total)} ${escapeHTML(noun)}</span>
+        <button class="btn small secondary" ${meta.has_next ? "" : "disabled"} data-next>Next</button>`;
+    box.querySelector("[data-prev]")?.addEventListener("click", prev);
+    box.querySelector("[data-next]")?.addEventListener("click", next);
+}
 
 function applyPerformancePermissions() {
     const p = performanceState.permissions || {};
@@ -35,7 +60,10 @@ function templateCard(t) {
 function renderTemplates() {
     const box = document.getElementById("templateList");
     if (!box) return;
-    box.innerHTML = (performanceState.templates || []).length ? performanceState.templates.map(templateCard).join("") : `<div class="empty-state">No templates yet.</div>`;
+    const page = clientSlice(performanceState.templates || [], templatePage, templateClientLimit);
+    templatePage = page.meta.page;
+    box.innerHTML = page.rows.length ? page.rows.map(templateCard).join("") : `<div class="empty-state">No templates yet.</div>`;
+    renderClientPager("templatePagination", page.meta, "templates", () => { templatePage = Math.max(1, templatePage - 1); renderTemplates(); }, () => { templatePage += 1; renderTemplates(); });
 }
 
 function checklistHtml(goal) {
@@ -67,10 +95,19 @@ function goalCard(goal) {
     </article>`;
 }
 
+function visibleGoals() {
+    const q = (document.getElementById("goalSearch")?.value || "").toLowerCase();
+    if (!q) return performanceState.goals || [];
+    return (performanceState.goals || []).filter(goal => `${goal.employee_name || ""} ${goal.title || ""}`.toLowerCase().includes(q));
+}
+
 function renderGoals() {
     const box = document.getElementById("goalList");
     if (!box) return;
-    box.innerHTML = performanceState.goals.length ? performanceState.goals.map(goalCard).join("") : `<div class="empty-state">No goals yet. Managers can assign checklist goals from the Assign Goals tab.</div>`;
+    const page = clientSlice(visibleGoals(), goalPage, goalClientLimit);
+    goalPage = page.meta.page;
+    box.innerHTML = page.rows.length ? page.rows.map(goalCard).join("") : `<div class="empty-state">No goals found for this filter.</div>`;
+    renderClientPager("goalPagination", page.meta, "goals", () => { goalPage = Math.max(1, goalPage - 1); renderGoals(); }, () => { goalPage += 1; renderGoals(); });
 }
 
 async function loadPerformance() {
@@ -79,6 +116,7 @@ async function loadPerformance() {
     const data = await res.json();
     if (!data.success) { toast(data.message || "Could not load performance", false, data.warning); return; }
     performanceState = data.data || performanceState;
+    goalPage = 1; templatePage = 1;
     setText("perfGoalCount", performanceState.summary?.goals || 0);
     setText("perfSubmittedCount", performanceState.summary?.submitted || 0);
     setText("perfCompletedCount", performanceState.summary?.completed || 0);
@@ -146,8 +184,8 @@ async function verifyChecklist(goalId, itemId, verified) {
 }
 
 function filterGoals() {
-    const q = (document.getElementById("goalSearch")?.value || "").toLowerCase();
-    document.querySelectorAll("[data-goal-row]").forEach(row => row.hidden = q && !row.dataset.search.includes(q));
+    goalPage = 1;
+    renderGoals();
 }
 
 function initPerformancePage() {

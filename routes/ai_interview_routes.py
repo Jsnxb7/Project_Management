@@ -46,6 +46,7 @@ from services.ai_interview_service import (
 from utils.response import ok, fail, warn
 from socket_events import socketio
 from services.live_room_service import save_room_event
+from services.candidate_pipeline_service import create_employee_from_candidate as pipeline_create_employee_from_candidate
 
 ai_interview_bp = Blueprint("ai_interview_bp", __name__)
 
@@ -419,6 +420,28 @@ def get_result(room_code):
     if not transcript:
         transcript = ai_interview_transcripts_collection.find_one({"room_code": room_code}, sort=[("started_at", -1)])
     return ok("AI interview result fetched", {"result": serialize_result(result), "transcript": serialize_transcript(transcript)})
+
+
+
+
+@ai_interview_bp.post("/rooms/<room_code>/create-employee")
+@jwt_required()
+def create_employee_from_ai_report(room_code):
+    user, error = require_ai_controller(room_code)
+    if error:
+        return error
+    room, session, app, job = room_bundle(room_code)
+    if not app:
+        return fail("Application not found for this AI room", 404)
+    try:
+        card = pipeline_create_employee_from_candidate(str(app["_id"]), actor_user_id=user.get("_id"), payload=request.get_json(silent=True) or {})
+        latest_result = ai_interview_results_collection.find_one({"room_code": room_code}, sort=[("created_at", -1)])
+        if latest_result:
+            ai_interview_results_collection.update_one({"_id": latest_result["_id"]}, {"$set": {"decision": "employee_created", "decided_by": user.get("_id"), "decided_at": card.get("candidate_pipeline", {}).get("final_decision", {}).get("decided_at"), "same_room_phase": "employee_created", "same_room_code": room_code}})
+        emit_ai_room_event(room_code, "employee_created_from_ai_report", {"application_id": str(app["_id"]), "candidate": card}, user.get("_id"))
+        return ok("Employee record created and candidate user role changed to Employee", {"candidate": card}, 201)
+    except ValueError as exc:
+        return fail(str(exc), 400)
 
 
 @ai_interview_bp.post("/rooms/<room_code>/decision")

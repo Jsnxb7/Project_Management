@@ -9,14 +9,31 @@ function tokenHeaders() {
 const notificationList = document.getElementById("notificationList");
 const unreadCount = document.getElementById("unreadCount");
 const markAllRead = document.getElementById("markAllRead");
+let notificationPage = 1;
+const notificationLimit = 20;
 
 function formatDate(value) {
     if (!value) return "";
     return new Date(value).toLocaleString();
 }
 
+function renderNotificationPagination(meta) {
+    const box = document.getElementById("notificationPagination");
+    if (!box) return;
+    if (!meta?.total || meta.pages <= 1) {
+        box.innerHTML = meta?.total ? `<span class="muted">Showing ${escapeHTML(meta.total)} notifications</span>` : "";
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? "" : "disabled"} data-notification-page="prev">Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} - ${escapeHTML(meta.total)} notifications</span>
+        <button class="btn small secondary" ${meta.has_next ? "" : "disabled"} data-notification-page="next">Next</button>`;
+    box.querySelector("[data-notification-page='prev']")?.addEventListener("click", () => { notificationPage = Math.max(1, notificationPage - 1); loadNotifications(); });
+    box.querySelector("[data-notification-page='next']")?.addEventListener("click", () => { notificationPage += 1; loadNotifications(); });
+}
+
 async function loadNotifications() {
-    const res = await fetch("/api/notifications", {
+    const params = new URLSearchParams({ page: notificationPage, limit: notificationLimit });
+    const res = await fetch(`/api/notifications?${params.toString()}`, {
         headers: tokenHeaders(),
     });
 
@@ -27,13 +44,15 @@ async function loadNotifications() {
         return;
     }
 
-    unreadCount.textContent = data.data.unread_count;
+    if (unreadCount) unreadCount.textContent = data.data.unread_count;
+    if (!notificationList) return;
     notificationList.innerHTML = "";
 
     const notifications = data.data.notifications || [];
 
     if (notifications.length === 0) {
         notificationList.innerHTML = `<p class="empty">No notifications yet.</p>`;
+        renderNotificationPagination(data.data.meta || {});
         return;
     }
 
@@ -59,6 +78,7 @@ async function loadNotifications() {
             loadNotifications();
         });
     });
+    renderNotificationPagination(data.data.meta || {});
 }
 
 if (markAllRead) {
@@ -67,6 +87,7 @@ if (markAllRead) {
             method: "PATCH",
             headers: tokenHeaders(),
         });
+        notificationPage = 1;
         loadNotifications();
     });
 }
