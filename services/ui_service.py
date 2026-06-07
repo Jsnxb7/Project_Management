@@ -19,19 +19,19 @@ UI_NAV_GROUPS = [
     },
     {
         "key": "recruitment",
-        "label": "Recruitment",
+        "label": "Hiring",
         "items": [
             {"key": "recruitment", "label": "Recruitment", "path": "/recruitment", "icon": "✧"},
             {"key": "applications", "label": "Applications", "path": "/applications", "icon": "▤"},
-            {"key": "second_round_candidates", "label": "Second Round", "path": "/second-round-candidates", "icon": "◎"},
-            {"key": "interviews", "label": "Interview Rooms", "path": "/interviews", "icon": "◌"},
-            {"key": "voice_interview", "label": "Voice AI Lab", "path": "/voice-interview", "icon": "♬"},
+            {"key": "candidate_pipeline", "label": "Pipeline & Decisions", "path": "/candidate-pipeline", "icon": "◎"},
+            {"key": "interviews", "label": "Room Control", "path": "/interviews", "icon": "◌"},
+            {"key": "voice_interview", "label": "AI Voice Lab", "path": "/voice-interview", "icon": "♬"},
         ],
     },
     {
         "key": "candidate",
         "label": "Candidate",
-        "items": [{"key": "candidate_process", "label": "My Interview Steps", "path": "/candidate-process", "icon": "◈"}],
+        "items": [{"key": "candidate_process", "label": "My Interview Rooms", "path": "/candidate-process", "icon": "◈"}],
     },
     {
         "key": "self_service",

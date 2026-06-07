@@ -6,6 +6,7 @@ from flask import Flask, render_template, session, redirect, url_for, request, m
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
+from socket_events import init_socket_events, socketio
 
 from config import Config
 from services.page_access import can_access_page, default_page_for_role
@@ -76,10 +77,16 @@ def create_app():
     from routes.hrms_routes import hrms_bp
     from routes.recruitment_routes import recruitment_bp
     from routes.theme_routes import theme_bp
+    from routes.ai_interview_routes import ai_interview_bp
+    from routes.candidate_pipeline_routes import candidate_pipeline_bp
+    from routes.human_interview_routes import human_interview_bp
+    from routes.interview_pages_v2_routes import interview_pages_v2_bp
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
         return jwt_payload.get("jti") in TOKEN_BLOCKLIST
+
+    from routes.live_room_routes import live_room_bp
 
     # Register API blueprints
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -90,6 +97,13 @@ def create_app():
     app.register_blueprint(hrms_bp, url_prefix="/api/hrms")
     app.register_blueprint(recruitment_bp, url_prefix="/api/recruitment")
     app.register_blueprint(theme_bp, url_prefix="/api/theme")
+    app.register_blueprint(ai_interview_bp, url_prefix="/api/ai-interview")
+    app.register_blueprint(human_interview_bp, url_prefix="/api/human-interview")
+    app.register_blueprint(candidate_pipeline_bp, url_prefix="/api/candidate-pipeline")
+    app.register_blueprint(live_room_bp, url_prefix="/api/live")
+    app.register_blueprint(interview_pages_v2_bp)
+
+    init_socket_events(app)
 
     @app.after_request
     def no_cache_for_app_pages(response):
@@ -104,7 +118,7 @@ def create_app():
             "/payroll",
             "/performance",
             "/recruitment",
-            "/second-round-candidates",
+            "/candidate-pipeline",
             "/interviews",
             "/voice-interview",
             "/themes",
@@ -175,10 +189,15 @@ def create_app():
     def applications_page():
         return render_template("applications.html")
 
+    @app.route("/candidate-pipeline")
+    @protected_page
+    def candidate_pipeline_page():
+        return render_template("candidate_pipeline.html")
+
     @app.route("/second-round-candidates")
     @protected_page
     def second_round_candidates_page():
-        return render_template("second_round_candidates.html")
+        return redirect(url_for("candidate_pipeline_page"))
 
     @app.route("/voice-interview")
     @protected_page
@@ -197,7 +216,15 @@ def create_app():
 
     @app.route("/interview-room/<room_code>")
     def interview_room_page(room_code):
-        return render_template("interview_room.html", room_code=room_code)
+        role = (session.get("hrms_role") or session.get("portal_role") or session.get("role") or "").lower().replace(" ", "_")
+        controller_roles = {
+            "super_user", "superuser", "controller", "admin", "hr", "hr_staff", "org_head",
+            "management_admin", "hr_director", "hr_manager", "hr_business_partner", "hr_recruiter",
+            "talent_acquisition_specialist", "technical_interviewer", "panel_interviewer", "senior_manager",
+        }
+        if role in controller_roles:
+            return redirect(url_for("interview_pages_v2.configure_ai_room_page", room_code=room_code))
+        return redirect(url_for("interview_pages_v2.ai_interview_candidate_page", room_code=room_code))
 
     @app.route("/themes")
     @protected_page
@@ -235,4 +262,4 @@ def create_app():
 if __name__ == "__main__":
     app = create_app()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    socketio.run(app, host="0.0.0.0", port=port, debug=os.getenv("FLASK_ENV") == "development", use_reloader=False, allow_unsafe_werkzeug=True)

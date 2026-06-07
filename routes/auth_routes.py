@@ -4,7 +4,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 
 from app import bcrypt
-from database.db import copy_mongo_to_json, employees_collection, sync_json_to_mongo, users_collection
+from database.db import employees_collection, users_collection
 from utils.response import ok, fail
 from utils.validators import valid_email, valid_password
 from services.hrms_service import HRMS_ROLES, normalize_role, primary_super_user_id
@@ -107,10 +107,7 @@ def login():
         return fail("Email and password are required")
 
     if users_collection.count_documents({}) == 0:
-        try:
-            copy_mongo_to_json()
-        except Exception as exc:
-            return fail(f"Unable to bootstrap local JSON database from Mongo Atlas: {exc}", 503)
+        return fail("No users found in local MongoDB. Run the local Mongo migration/setup scripts or create a Super User first.", 503)
 
     user = users_collection.find_one({"email": email, "is_active": True})
     if not user or not bcrypt.check_password_hash(user["password_hash"], password):
@@ -144,10 +141,6 @@ def logout():
             TOKEN_BLOCKLIST.add(jti)
     except Exception:
         pass
-    try:
-        sync_json_to_mongo()
-    except Exception as exc:
-        return fail(f"Logout backup to Mongo Atlas failed: {exc}", 503)
     session.clear()
     return ok("Logout successful")
 

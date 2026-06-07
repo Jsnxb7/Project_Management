@@ -1,34 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Second Round Candidates | AI PeopleOps HRMS{% endblock %}
+{% block title %}Candidate Pipeline{% endblock %}
 {% block content %}
-<section class="page-head split">
-    <div>
-        <p class="eyebrow">Recruitment Pipeline</p>
-        <h1>Second Round Candidates</h1>
-        <p class="muted">Candidates with assigned rooms appear here after shortlisting. AI interview fields are placeholders for the future module; HR can schedule AI and personal interviews, mark round status, and convert selected candidates into employees.</p>
-    </div>
-    <div class="hero-actions">
-        <a class="btn secondary" href="/applications">Back to Applications</a>
-        <button id="refreshSecondRound" class="btn" type="button">Refresh</button>
-    </div>
-</section>
-
-<section class="stats-grid mini-stats" id="secondRoundStats">
-    <div><span>Second Round</span><b id="statSecondRound">0</b></div>
-    <div><span>AI Pending</span><b id="statAiPending">0</b></div>
-    <div><span>Personal Pending</span><b id="statPersonalPending">0</b></div>
-    <div><span>Employees Created</span><b id="statEmployeesCreated">0</b></div>
-</section>
-
-<section class="panel">
-    <div class="split">
-        <div>
-            <p class="eyebrow">Room-attended / scheduled pool</p>
-            <h2>Candidate Cards</h2>
-        </div>
-        <span class="status-pill">AI module placeholders active</span>
-    </div>
-    <div id="secondRoundList" class="card-grid"></div>
-</section>
+<section class="glass-panel"><h1>Second Round has moved</h1><p class="muted">This page has been replaced by the Candidate Pipeline.</p><a class="btn" href="/candidate-pipeline">Open Candidate Pipeline</a></section>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/second_round_candidates.js') }}"></script>{% endblock %}

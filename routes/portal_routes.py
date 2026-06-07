@@ -58,6 +58,15 @@ def list_users():
     if not can_manage_users(me):
         return warn("Warning: your HRMS role cannot view user management.")
     q = (request.args.get("q") or "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = max(1, min(int(request.args.get("limit", 25)), 100))
+    except (TypeError, ValueError):
+        limit = 25
+    skip = (page - 1) * limit
     query = {}
     if q:
         query = {"$or": [
@@ -65,13 +74,21 @@ def list_users():
             {"email": {"$regex": q, "$options": "i"}},
             {"hrms_role": {"$regex": q, "$options": "i"}},
         ]}
-    users = list(users_collection.find(query).sort("created_at", -1).limit(200))
+    filtered_total = users_collection.count_documents(query)
+    pages = max(1, (filtered_total + limit - 1) // limit)
+    users = list(users_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
     return ok("HRMS users fetched", {
         "users": [user_public(user) for user in users],
         "meta": {
             "total_users": users_collection.count_documents({}),
+            "filtered_total": filtered_total,
             "active_users": users_collection.count_documents({"is_active": True}),
             "roles": HRMS_ROLES,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+            "has_next": page < pages,
+            "has_prev": page > 1,
         },
     })
 

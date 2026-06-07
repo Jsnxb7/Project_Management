@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/candidate_pipeline_rebuild.css') }}">
 </head>
 <body>
     <video class="video-background" autoplay muted loop playsinline aria-hidden="true">
@@ -57,17 +58,17 @@
             </div>
 
             <div class="nav-group" data-recruitment-link data-nav-group="recruitment">
-                <span class="nav-heading">Recruitment</span>
+                <span class="nav-heading">Hiring</span>
                 <a data-recruitment-link data-nav-key="recruitment" href="/recruitment"><span class="nav-icon">✧</span><span class="nav-label">Recruitment</span></a>
                 <a data-recruitment-link data-nav-key="applications" href="/applications"><span class="nav-icon">▤</span><span class="nav-label">Applications</span></a>
-                <a data-recruitment-link data-nav-key="second_round_candidates" href="/second-round-candidates"><span class="nav-icon">◎</span><span class="nav-label">Second Round</span></a>
-                <a data-interview-link data-nav-key="interviews" href="/interviews"><span class="nav-icon">◌</span><span class="nav-label">Interview Rooms</span></a>
-                <a data-interview-link data-nav-key="voice_interview" href="/voice-interview"><span class="nav-icon">♬</span><span class="nav-label">Voice AI Lab</span></a>
+                <a data-recruitment-link data-nav-key="candidate_pipeline" href="/candidate-pipeline"><span class="nav-icon">◎</span><span class="nav-label">Pipeline & Decisions</span></a>
+                <a data-interview-link data-nav-key="interviews" href="/interviews"><span class="nav-icon">◌</span><span class="nav-label">Room Control</span></a>
+                <a data-interview-link data-nav-key="voice_interview" href="/voice-interview"><span class="nav-icon">♬</span><span class="nav-label">AI Voice Lab</span></a>
             </div>
 
             <div class="nav-group" data-candidate-link data-nav-group="candidate">
                 <span class="nav-heading">Candidate</span>
-                <a data-candidate-link data-nav-key="candidate_process" href="/candidate-process"><span class="nav-icon">◈</span><span class="nav-label">My Interview Steps</span></a>
+                <a data-candidate-link data-nav-key="candidate_process" href="/candidate-process"><span class="nav-icon">◈</span><span class="nav-label">My Interview Rooms</span></a>
             </div>
 
             <div class="nav-group" data-auth-link data-nav-group="self_service">

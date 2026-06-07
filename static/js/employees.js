@@ -2,6 +2,8 @@ function tokenHeaders() {
     return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}` };
 }
 let managerOptions = [];
+let employeePage = 1;
+const employeeLimit = 25;
 function roleOfLocal() { return (currentUser()?.hrms_role || currentUser()?.portal_role || currentUser()?.role || localStorage.getItem("hrms_role") || "Employee"); }
 function canAssignManagers() { return roleOfLocal() === "Super User"; }
 function isSuperUser() { return roleOfLocal() === "Super User"; }
@@ -47,7 +49,8 @@ async function loadEmployees() {
     if (!requireAuth()) return;
     await loadManagers();
     const q = document.getElementById("employeeSearch")?.value || "";
-    const res = await fetch(`/api/hrms/employees?q=${encodeURIComponent(q)}`, { headers: tokenHeaders() });
+    const params = new URLSearchParams({q, page: employeePage, limit: employeeLimit});
+    const res = await fetch(`/api/hrms/employees?${params.toString()}`, { headers: tokenHeaders() });
     const data = await res.json();
     const box = document.getElementById("employeeList");
     const assignedBox = document.getElementById("assignedEmployeeList");
@@ -61,9 +64,25 @@ async function loadEmployees() {
     if (assignedBox) {
         assignedBox.innerHTML = assignedEmployees.map(employeeRow).join("") || `<div class="mini-item"><span>No assigned users found</span><strong>0</strong></div>`;
     }
+    renderEmployeePagination(data.data.meta || {});
 }
-document.getElementById("employeeSearchBtn")?.addEventListener("click", loadEmployees);
-document.getElementById("employeeSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") loadEmployees(); });
+
+function renderEmployeePagination(meta) {
+    const box = document.getElementById("employeePagination");
+    if (!box) return;
+    if (!meta.total || meta.pages <= 1) {
+        box.innerHTML = meta.total ? `<span class="muted">Showing ${escapeHTML(meta.total)} users</span>` : "";
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? "" : "disabled"} data-employee-page="prev">Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} - ${escapeHTML(meta.total)} users</span>
+        <button class="btn small secondary" ${meta.has_next ? "" : "disabled"} data-employee-page="next">Next</button>`;
+    box.querySelector("[data-employee-page='prev']")?.addEventListener("click", () => { employeePage = Math.max(1, employeePage - 1); loadEmployees(); });
+    box.querySelector("[data-employee-page='next']")?.addEventListener("click", () => { employeePage += 1; loadEmployees(); });
+}
+
+document.getElementById("employeeSearchBtn")?.addEventListener("click", () => { employeePage = 1; loadEmployees(); });
+document.getElementById("employeeSearch")?.addEventListener("keydown", event => { if (event.key === "Enter") { employeePage = 1; loadEmployees(); } });
 async function saveManagers(userId, managerIds, message) {
     const res = await fetch(`/api/hrms/users/${encodeURIComponent(userId)}/assign-manager`, {
         method: "POST",

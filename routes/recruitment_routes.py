@@ -22,6 +22,7 @@ from database.db import (
     employees_collection,
 )
 from services.ai_recruitment_service import extract_keywords, extract_resume_text, convert_resume_to_txt, screen_resume, evaluate_answer
+from services.ai_interview_service import mark_room_created_for_ai
 from services.hrms_service import role_permissions, user_role, to_object_id, primary_super_user_id
 from utils.response import ok, fail, warn
 
@@ -413,7 +414,12 @@ def serialize_application(app):
         "requires_interview_scheduling": app.get("status") == "Shortlisted" and not app.get("room_code"),
         "ai_interview_scheduled_at": app.get("ai_interview_scheduled_at"),
         "ai_interview_conducted": bool(app.get("ai_interview_conducted")),
+        "ai_interview_room_configured": bool(app.get("ai_interview_room_configured")),
+        "ai_interview_completed": bool(app.get("ai_interview_completed")),
         "ai_interview_score": app.get("ai_interview_score"),
+        "ai_interview_result_id": str(app.get("ai_interview_result_id")) if app.get("ai_interview_result_id") else None,
+        "ai_interview_transcript_id": str(app.get("ai_interview_transcript_id")) if app.get("ai_interview_transcript_id") else None,
+        "ai_interview_recommendation": app.get("ai_interview_recommendation"),
         "ai_interview_status": app.get("ai_interview_status") or ("Conducted" if app.get("ai_interview_conducted") else "Pending"),
         "personal_interview_scheduled_at": app.get("personal_interview_scheduled_at"),
         "personal_interview_conducted": bool(app.get("personal_interview_conducted")),
@@ -449,6 +455,31 @@ def _serialize_report(report):
         "experience_years_detected": report.get("experience_years_detected"),
         "score_breakdown": report.get("score_breakdown", {}),
         "summary": report.get("summary"),
+    }
+
+
+def _pagination_args(default_limit=25, max_limit=100):
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = int(request.args.get("limit", default_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    limit = max(1, min(limit, max_limit))
+    return page, limit, (page - 1) * limit
+
+
+def _pagination_meta(total, page, limit):
+    pages = max(1, (int(total or 0) + limit - 1) // limit)
+    return {
+        "page": page,
+        "limit": limit,
+        "total": int(total or 0),
+        "pages": pages,
+        "has_next": page < pages,
+        "has_prev": page > 1,
     }
 
 
@@ -502,8 +533,19 @@ def _screen_and_store_application(job, candidate, resume_text, resume_filename, 
 @recruitment_bp.get("/public/jobs")
 def public_jobs():
     query = {"status": "Open", "$or": [{"open_until": {"$exists": False}}, {"open_until": None}, {"open_until": {"$gte": now()}}]}
-    jobs = list(jobs_collection.find(query).sort("created_at", -1).limit(50))
-    return ok("Open jobs fetched", {"jobs": [serialize_job(j) for j in jobs]})
+    q = (request.args.get("q") or "").strip()
+    if q:
+        query["$and"] = [{"$or": [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"department": {"$regex": q, "$options": "i"}},
+            {"location": {"$regex": q, "$options": "i"}},
+            {"employment_type": {"$regex": q, "$options": "i"}},
+            {"keywords": {"$regex": q, "$options": "i"}},
+        ]}]
+    page, limit, skip = _pagination_args(default_limit=24, max_limit=50)
+    total = jobs_collection.count_documents(query)
+    jobs = list(jobs_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+    return ok("Open jobs fetched", {"jobs": [serialize_job(j) for j in jobs], "meta": _pagination_meta(total, page, limit)})
 
 
 @recruitment_bp.post("/public/apply")
@@ -548,8 +590,12 @@ def list_jobs():
     user, error = require_perm("can_view_recruitment")
     if error:
         return error
-    jobs = list(jobs_collection.find(_job_access_query(user)).sort("created_at", -1).limit(200))
-    return ok("Jobs fetched", {"jobs": [serialize_job(j, include_counts=True, user=user) for j in jobs]})
+    page, limit, skip = _pagination_args(default_limit=50, max_limit=100)
+    include_counts = request.args.get("include_counts", "1") != "0"
+    query = _job_access_query(user)
+    total = jobs_collection.count_documents(query)
+    jobs = list(jobs_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+    return ok("Jobs fetched", {"jobs": [serialize_job(j, include_counts=include_counts, user=user) for j in jobs], "meta": _pagination_meta(total, page, limit)})
 
 
 @recruitment_bp.get("/jobs/<job_id>")
@@ -707,8 +753,11 @@ def list_applications():
     review_status = request.args.get("review_status")
     if review_status:
         query["review_status"] = review_status
-    apps = list(applications_collection.find(query).sort([("final_score", -1), ("created_at", -1)]).limit(500))
-    return ok("Applications fetched", {"applications": [serialize_application(a) for a in apps]})
+    page, limit, skip = _pagination_args(default_limit=24, max_limit=100)
+    total = applications_collection.count_documents(query)
+    projection = {"resume_text": 0, "conversion_info": 0}
+    apps = list(applications_collection.find(query, projection).sort([("final_score", -1), ("created_at", -1)]).skip(skip).limit(limit))
+    return ok("Applications fetched", {"applications": [serialize_application(a) for a in apps], "meta": _pagination_meta(total, page, limit)})
 
 
 @recruitment_bp.get("/applications/<application_id>/report")
@@ -943,9 +992,24 @@ def assign_interview(application_id):
     participants = [str(interviewer_id), *[str(x) for x in panel_ids], str(candidate_user["_id"]), app.get("candidate_email")]
     interview_rooms_collection.update_one(
         {"room_code": room_code},
-        {"$set": {"session_id": session_id, "created_by": user["_id"], "participants": participants, "status": "open", "updated_at": now()}, "$setOnInsert": {"created_at": now()}},
+        {"$set": {
+            "session_id": session_id,
+            "created_by": user["_id"],
+            "participants": participants,
+            "status": "open",
+            "room_type": "ai_interview",
+            "requires_ai_config": True,
+            "requires_human_interviewer": False,
+            "ai_interview_enabled": False,
+            "ai_interview_config_status": "not_configured",
+            "ai_interview_status": "not_started",
+            "candidate_entry_locked": True,
+            "candidate_entry_lock_reason": "AI interview room is not configured yet.",
+            "updated_at": now(),
+        }, "$setOnInsert": {"created_at": now()}},
         upsert=True,
     )
+    mark_room_created_for_ai(room_code)
     applications_collection.update_one({"_id": app["_id"]}, {"$set": {
         "status": "Interview Scheduled",
         "review_status": "Interview Scheduled",
@@ -969,7 +1033,7 @@ def assign_interview(application_id):
         "temporary_password": login_password,
         "password_note": "Temporary password generated when the candidate account was created." if login_password else "Existing candidate password unchanged.",
     }
-    return ok("Candidate account and interview room assigned", {"session_id": str(session_id), "room_code": room_code, "join_url": f"/interview-room/{room_code}", "candidate_credentials": credential_payload, "process_steps": process_steps}, 201)
+    return ok("Candidate account and interview room assigned", {"session_id": str(session_id), "room_code": room_code, "join_url": f"/rooms/{room_code}/ai-interview", "controller_url": f"/rooms/{room_code}/configure-ai", "candidate_credentials": credential_payload, "process_steps": process_steps}, 201)
 
 
 
@@ -1009,14 +1073,16 @@ def second_round_candidates():
             {"selection_stage": {"$in": ["Second Round", "Final Review", "Employee Created"]}},
         ],
     }
-    rows = list(applications_collection.find(query).sort("updated_at", -1).limit(200))
+    page, limit, skip = _pagination_args(default_limit=24, max_limit=100)
+    total = applications_collection.count_documents(query)
+    rows = list(applications_collection.find(query, {"resume_text": 0, "conversion_info": 0}).sort("updated_at", -1).skip(skip).limit(limit))
     items = []
     for app in rows:
         item = serialize_application(app)
         item["room_attended"] = _room_attended(app)
         item["second_round_ready"] = bool(item["room_attended"] or app.get("selection_stage") in {"Second Round", "Final Review", "Employee Created"})
         items.append(item)
-    return ok("Second round candidates fetched", {"candidates": items})
+    return ok("Second round candidates fetched", {"candidates": items, "meta": _pagination_meta(total, page, limit)})
 
 
 @recruitment_bp.patch("/applications/<application_id>/schedule-rounds")
@@ -1139,8 +1205,29 @@ def list_interviews():
         return error
     perms = role_permissions(user_role(user))
     query = {} if perms.get("is_super_user") or perms.get("can_manage_recruitment") else {"$or": [{"interviewer_user_id": user["_id"]}, {"panel_user_ids": user["_id"]}]}
-    rows = list(interview_sessions_collection.find(query).sort("created_at", -1).limit(100))
-    return ok("Interviews fetched", {"interviews": [{"id": str(r["_id"]), "candidate_name": r.get("candidate_name"), "candidate_email": r.get("candidate_email"), "mode": r.get("mode"), "status": r.get("status"), "room_code": r.get("room_code"), "scheduled_at": r.get("scheduled_at")} for r in rows]})
+    page, limit, skip = _pagination_args(default_limit=24, max_limit=100)
+    total = interview_sessions_collection.count_documents(query)
+    rows = list(interview_sessions_collection.find(query).sort("created_at", -1).skip(skip).limit(limit))
+    room_codes = [r.get("room_code") for r in rows if r.get("room_code")]
+    rooms = {room.get("room_code"): room for room in interview_rooms_collection.find({"room_code": {"$in": room_codes}})} if room_codes else {}
+    payload = []
+    for r in rows:
+        room = rooms.get(r.get("room_code"), {})
+        payload.append({
+            "id": str(r["_id"]),
+            "candidate_name": r.get("candidate_name"),
+            "candidate_email": r.get("candidate_email"),
+            "mode": r.get("mode"),
+            "status": r.get("status"),
+            "room_code": r.get("room_code"),
+            "scheduled_at": r.get("scheduled_at"),
+            "room_type": room.get("room_type") or r.get("room_type"),
+            "current_interview_phase": room.get("current_interview_phase") or r.get("current_interview_phase"),
+            "ai_interview_config_status": room.get("ai_interview_config_status"),
+            "ai_interview_status": room.get("ai_interview_status"),
+            "candidate_entry_locked": room.get("candidate_entry_locked"),
+        })
+    return ok("Interviews fetched", {"interviews": payload, "meta": _pagination_meta(total, page, limit)})
 
 
 @recruitment_bp.post("/ai/voice-answer")
@@ -1169,6 +1256,14 @@ def candidate_process():
     job_ids = [a.get("job_id") for a in apps if a.get("job_id")]
     jobs = {j["_id"]: j for j in jobs_collection.find({"_id": {"$in": job_ids}})} if job_ids else {}
     sessions = list(interview_sessions_collection.find({"$or": [{"candidate_user_id": user["_id"]}, {"candidate_email": user.get("email")}]}).sort("created_at", -1).limit(20))
+    room_codes = list({x for x in [*[a.get("room_code") for a in apps], *[s.get("room_code") for s in sessions]] if x})
+    rooms = {room.get("room_code"): room for room in interview_rooms_collection.find({"room_code": {"$in": room_codes}})} if room_codes else {}
+    def candidate_join_url(room_code):
+        room = rooms.get(room_code) or {}
+        phase = room.get("current_interview_phase") or room.get("room_type")
+        if phase in {"human_interview", "personal_interview", "hr_interview"} or room.get("room_type") in {"human_interview", "personal_interview", "hr_interview"}:
+            return f"/rooms/{room_code}/human-interview"
+        return f"/rooms/{room_code}/ai-interview"
     if is_candidate:
         return ok("Candidate process fetched", {
             "candidate_view": True,
@@ -1176,7 +1271,7 @@ def candidate_process():
                 "id": str(a["_id"]),
                 "job_title": a.get("job_title") or (jobs.get(a.get("job_id")) or {}).get("title"),
                 "room_code": a.get("room_code"),
-                "join_url": f"/interview-room/{a.get('room_code')}" if a.get("room_code") else None,
+                "join_url": candidate_join_url(a.get("room_code")) if a.get("room_code") else None,
                 "scheduled_at": a.get("scheduled_at"),
                 "interview_mode": a.get("interview_mode"),
                 "process_steps": a.get("process_steps", []),
@@ -1193,7 +1288,7 @@ def candidate_process():
             "interviews": [{
                 "id": str(r["_id"]),
                 "room_code": r.get("room_code"),
-                "join_url": f"/interview-room/{r.get('room_code')}",
+                "join_url": candidate_join_url(r.get("room_code")),
                 "scheduled_at": r.get("scheduled_at"),
                 "mode": r.get("mode"),
                 "process_steps": r.get("process_steps", []),
@@ -1203,7 +1298,7 @@ def candidate_process():
         "candidate_view": False,
         "candidate": {"name": user.get("name"), "email": user.get("email"), "candidate_uid": user.get("candidate_uid")},
         "applications": [{**serialize_application(a), "job": serialize_job(jobs.get(a.get("job_id")), user=user) if jobs.get(a.get("job_id")) else None} for a in apps],
-        "interviews": [{"id": str(r["_id"]), "room_code": r.get("room_code"), "join_url": f"/interview-room/{r.get('room_code')}", "scheduled_at": r.get("scheduled_at"), "status": r.get("status"), "mode": r.get("mode"), "process_steps": r.get("process_steps", [])} for r in sessions],
+        "interviews": [{"id": str(r["_id"]), "room_code": r.get("room_code"), "join_url": candidate_join_url(r.get("room_code")), "scheduled_at": r.get("scheduled_at"), "status": r.get("status"), "mode": r.get("mode"), "process_steps": r.get("process_steps", [])} for r in sessions],
     })
 
 
@@ -1237,7 +1332,21 @@ def room_details(room_code):
             "password_note": session.get("candidate_password_note") or (app or {}).get("candidate_password_note") or "Existing candidate password unchanged.",
         }
     return ok("Interview room details fetched", {
-        "room": {"room_code": room_code, "status": room.get("status"), "participants": room.get("participants", [])},
+        "room": {
+            "room_code": room_code,
+            "status": room.get("status"),
+            "participants": room.get("participants", []),
+            "room_type": room.get("room_type"),
+            "heading": room.get("heading"),
+            "ai_interview_enabled": room.get("ai_interview_enabled"),
+            "ai_interview_config_status": room.get("ai_interview_config_status"),
+            "ai_interview_status": room.get("ai_interview_status"),
+            "candidate_entry_locked": room.get("candidate_entry_locked"),
+            "candidate_entry_lock_reason": room.get("candidate_entry_lock_reason"),
+            "ai_config_id": str(room.get("ai_config_id")) if room.get("ai_config_id") else None,
+            "ai_transcript_id": str(room.get("ai_transcript_id")) if room.get("ai_transcript_id") else None,
+            "ai_result_id": str(room.get("ai_result_id")) if room.get("ai_result_id") else None,
+        },
         "session": session_payload,
         "application": None if viewer_is_candidate else (serialize_application(app) if app else None),
         "job": None if viewer_is_candidate else (serialize_job(job) if job else None),

@@ -1,6 +1,8 @@
 let recruitmentJobs = [];
 let recruitmentUsers = [];
 let selectedJobId = "";
+let recruitmentJobPage = 1;
+const recruitmentJobLimit = 12;
 
 function selectedJob() { return recruitmentJobs.find(j => j.id === selectedJobId) || null; }
 function keywordTags(list, cls = "") { return (list || []).slice(0, 18).map(k => `<span class="tag ${cls}">${escapeHTML(k)}</span>`).join(""); }
@@ -41,7 +43,7 @@ async function loadShortlistedCandidateCards() {
     const box = document.getElementById('shortlistedCandidateCards');
     if (!box) return;
     try {
-        const res = await fetch('/api/recruitment/applications?shortlisted=1', {headers: authHeaders(false)});
+        const res = await fetch('/api/recruitment/applications?shortlisted=1&limit=8&page=1', {headers: authHeaders(false)});
         const data = await res.json();
         if (!data.success) { box.innerHTML = `<p class="empty">${escapeHTML(data.message || 'No access')}</p>`; return; }
         const apps = (data.data.applications || []).slice(0, 8);
@@ -53,7 +55,7 @@ async function loadShortlistedCandidateCards() {
                 <span class="tag ${a.candidate_account_created ? 'success-card' : 'warning-tag'}">${a.candidate_account_created ? 'Candidate account ready' : 'Account pending'}</span>
                 <span class="tag ${a.room_code ? 'success-card' : 'warning-tag'}">${a.room_code ? 'Room: ' + escapeHTML(a.room_code) : 'Room not assigned'}</span>
             </div>
-            <div class="hero-actions"><a class="btn small" href="/applications?job_id=${escapeHTML(a.job_id || '')}">Review / Assign Room</a><a class="btn small secondary" href="/second-round-candidates">Second Round</a></div>
+            <div class="hero-actions"><a class="btn small" href="/applications?job_id=${escapeHTML(a.job_id || '')}">Review / Assign Room</a><a class="btn small secondary" href="/candidate-pipeline">Pipeline</a></div>
         </article>`).join('') : '<p class="empty">No confirmed shortlisted candidates yet. Use Applications → Shortlist to auto-create candidate accounts.</p>';
     } catch { box.innerHTML = '<p class="empty">Could not load shortlisted candidate cards.</p>'; }
 }
@@ -152,7 +154,8 @@ async function loadJobs() {
     if (!requireAuth()) return;
     const box = document.getElementById('jobList');
     const select = document.getElementById('jobSelect');
-    const res = await fetch('/api/recruitment/jobs', {headers: authHeaders(false)});
+    const params = new URLSearchParams({page: recruitmentJobPage, limit: recruitmentJobLimit});
+    const res = await fetch(`/api/recruitment/jobs?${params.toString()}`, {headers: authHeaders(false)});
     const data = await res.json();
     if (!data.success) { box.innerHTML = `<p class="empty">${escapeHTML(data.message || 'No access')}</p>`; return; }
     recruitmentJobs = data.data.jobs || [];
@@ -175,7 +178,22 @@ async function loadJobs() {
     }));
     updateStats();
     renderSelectedJob();
+    renderJobPagination(data.data.meta || {});
     loadShortlistedCandidateCards();
+}
+
+function renderJobPagination(meta) {
+    const box = document.getElementById('jobPagination');
+    if (!box) return;
+    if (!meta.total || meta.pages <= 1) {
+        box.innerHTML = meta.total ? `<span class="muted">Showing ${escapeHTML(recruitmentJobs.length)} of ${escapeHTML(meta.total)} jobs</span>` : '';
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? '' : 'disabled'} data-job-page="prev">Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} • ${escapeHTML(meta.total)} jobs</span>
+        <button class="btn small secondary" ${meta.has_next ? '' : 'disabled'} data-job-page="next">Next</button>`;
+    box.querySelector('[data-job-page="prev"]')?.addEventListener('click', () => { recruitmentJobPage = Math.max(1, recruitmentJobPage - 1); loadJobs(); });
+    box.querySelector('[data-job-page="next"]')?.addEventListener('click', () => { recruitmentJobPage += 1; loadJobs(); });
 }
 
 async function submitJob(e) {
@@ -261,5 +279,5 @@ document.getElementById('cancelEditJobBtn')?.addEventListener('click', resetJobF
 document.getElementById('singleScreenForm')?.addEventListener('submit', screenSingle);
 document.getElementById('bulkScreenForm')?.addEventListener('submit', screenBulk);
 document.getElementById('refreshJobsBtn')?.addEventListener('click', loadJobs);
-document.getElementById('jobSelect')?.addEventListener('change', e => { selectedJobId = e.target.value; renderSelectedJob(); loadJobs(); });
+document.getElementById('jobSelect')?.addEventListener('change', e => { selectedJobId = e.target.value; renderSelectedJob(); });
 loadRecruitmentUsers().then(loadJobs);

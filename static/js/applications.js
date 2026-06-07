@@ -2,13 +2,15 @@ let shortlistedOnly = new URLSearchParams(window.location.search).get('shortlist
 let applicationJobs = [];
 let recruitmentUsers = [];
 const initialJobId = new URLSearchParams(window.location.search).get('job_id') || '';
+let applicationsPage = 1;
+const applicationsLimit = 24;
 
 function kwTags(list, cls = "") {
     return (list || []).map(k => `<span class="tag ${cls}">${escapeHTML(k)}</span>`).join('');
 }
 
 async function loadJobFilter() {
-    const res = await fetch('/api/recruitment/jobs', {headers: authHeaders(false)});
+    const res = await fetch('/api/recruitment/jobs?limit=100&include_counts=0', {headers: authHeaders(false)});
     const data = await res.json();
     if (!data.success) return;
     applicationJobs = data.data.jobs || [];
@@ -82,7 +84,7 @@ function appCard(a) {
             <button class="btn small secondary" onclick="quickReview('${a.id}', 'Needs Review')">Needs Review</button>
             <button class="btn small danger-btn" onclick="quickReview('${a.id}', 'Rejected')">Reject</button>
             <button class="btn small secondary" onclick="assignInterview('${a.id}')">Assign Interview</button>
-            ${a.room_code ? `<a class="btn small secondary" href="/second-round-candidates">Second Round</a>` : ''}
+            ${a.room_code ? `<a class="btn small secondary" href="/candidate-pipeline">Pipeline</a>` : ''}
             <button class="btn small danger-btn" onclick="deleteReport('${a.id}')">Delete Report</button>
             <button class="btn small danger-btn" onclick="deleteApplication('${a.id}')">Delete Application</button>
         </div>
@@ -93,6 +95,8 @@ async function loadApplications() {
     if (!requireAuth()) return;
     const box = document.getElementById('applicationsList');
     const params = new URLSearchParams();
+    params.set('page', applicationsPage);
+    params.set('limit', applicationsLimit);
     if (shortlistedOnly) params.set('shortlisted', '1');
     const job = document.getElementById('jobFilter')?.value;
     const review = document.getElementById('reviewFilter')?.value;
@@ -104,6 +108,21 @@ async function loadApplications() {
     if (!data.success) { box.innerHTML = `<p class="empty">${escapeHTML(data.message || 'No access')}</p>`; return; }
     const apps = data.data.applications || [];
     box.innerHTML = apps.length ? apps.map(appCard).join('') : '<p class="empty">No applications found for the selected filters.</p>';
+    renderApplicationsPagination(data.data.meta || {});
+}
+
+function renderApplicationsPagination(meta) {
+    const box = document.getElementById('applicationsPagination');
+    if (!box) return;
+    if (!meta.total || meta.pages <= 1) {
+        box.innerHTML = meta.total ? `<span class="muted">Showing ${escapeHTML(meta.total)} applications</span>` : '';
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? '' : 'disabled'} data-app-page="prev">Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} â€¢ ${escapeHTML(meta.total)} applications</span>
+        <button class="btn small secondary" ${meta.has_next ? '' : 'disabled'} data-app-page="next">Next</button>`;
+    box.querySelector('[data-app-page="prev"]')?.addEventListener('click', () => { applicationsPage = Math.max(1, applicationsPage - 1); loadApplications(); });
+    box.querySelector('[data-app-page="next"]')?.addEventListener('click', () => { applicationsPage += 1; loadApplications(); });
 }
 
 async function loadReport(id) {
@@ -123,7 +142,7 @@ async function loadReport(id) {
     ${app.requires_interview_scheduling ? '<p class="message warning">⚠ Applicant is shortlisted but no interview room has been assigned yet.</p>' : ''}
     <div class="soft-panel"><strong>AI Recommendation:</strong> ${escapeHTML(r.recommendation)} • Confidence: ${escapeHTML(r.confidence || 'N/A')}<p>${escapeHTML(r.summary)}</p><p class="muted">Job visibility/control follows: super user sees all, creator/controllers can control, viewers can view.</p></div>
     <h3>Applicant Progress</h3>${progressBar(app.progress)}
-    <h3>Candidate Access</h3><div class="soft-panel">${candidateCredentialPanel(app)}${app.room_code ? `<a class="btn small" href="/interview-room/${app.room_code}">Open Interview Room</a>` : ''}</div>
+    <h3>Candidate Access</h3><div class="soft-panel">${candidateCredentialPanel(app)}${app.room_code ? `<a class="btn small" href="/rooms/${app.room_code}/configure-ai">Open AI Setup</a>` : ''}</div>
     <h3>Matched Keywords</h3><div class="tag-row">${kwTags(r.matched_keywords || [], 'success-card')}</div>
     <h3>Missing Keywords</h3><div class="tag-row">${kwTags(r.missing_keywords || [], 'danger-tag')}</div>
     <h3>Category Fit</h3><div class="stats-grid mini-stats compact-stats">${Object.entries(r.category_scores || {}).map(([k,v]) => `<div><span>${escapeHTML(k.replaceAll('_',' '))}</span><b>${escapeHTML(v)}</b></div>`).join('') || '<p class="empty">No category-specific JD skills detected.</p>'}</div>
@@ -244,9 +263,9 @@ async function deleteApplication(id) {
     document.getElementById('reportPanel').hidden = true;
 }
 
-document.getElementById('shortlistToggle')?.addEventListener('click', () => { shortlistedOnly = !shortlistedOnly; document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only'; loadApplications(); });
-document.getElementById('jobFilter')?.addEventListener('change', loadApplications);
-document.getElementById('reviewFilter')?.addEventListener('change', loadApplications);
+document.getElementById('shortlistToggle')?.addEventListener('click', () => { shortlistedOnly = !shortlistedOnly; applicationsPage = 1; document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only'; loadApplications(); });
+document.getElementById('jobFilter')?.addEventListener('change', () => { applicationsPage = 1; loadApplications(); });
+document.getElementById('reviewFilter')?.addEventListener('change', () => { applicationsPage = 1; loadApplications(); });
 document.getElementById('refreshApplications')?.addEventListener('click', loadApplications);
 document.getElementById('closeReport')?.addEventListener('click', () => document.getElementById('reportPanel').hidden = true);
 if (document.getElementById('shortlistToggle')) document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only';

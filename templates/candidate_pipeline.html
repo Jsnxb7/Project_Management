@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Pipeline & Decisions{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <div>
+    <p class="eyebrow">Hiring Pipeline</p>
+    <h1>Pipeline & Decisions</h1>
+    <p class="muted">Manage AI interviews, human interviews, final decisions, and employee conversion from one clean page.</p>
+  </div>
+  <div class="hero-actions">
+    <button class="btn secondary" id="refreshPipelineBtn" type="button">Refresh</button>
+  </div>
+</section>
+
+<section class="glass-panel pipeline-toolbar">
+  <div class="filter-row">
+    <button class="chip active" data-pipeline-filter="all" type="button">All</button>
+    <button class="chip" data-pipeline-filter="room_not_configured" type="button">AI Not Configured</button>
+    <button class="chip" data-pipeline-filter="ready" type="button">AI Ready</button>
+    <button class="chip" data-pipeline-filter="completed" type="button">AI Completed</button>
+    <button class="chip" data-pipeline-filter="human_interview" type="button">Human Interview</button>
+    <button class="chip" data-pipeline-filter="employee_created" type="button">Employee Created</button>
+    <button class="chip danger" data-pipeline-filter="rejected" type="button">Rejected</button>
+  </div>
+  <input id="pipelineSearch" class="input" placeholder="Search by candidate, job, email, room...">
+</section>
+
+<section class="pipeline-grid" id="candidatePipelineGrid">
+  <div class="empty">Loading candidates...</div>
+</section>
+<div id="pipelinePagination" class="pagination-bar"></div>
+
+<dialog id="humanInterviewDialog" class="modal-card">
+  <form method="dialog" class="modal-inner" id="humanInterviewForm">
+    <div class="split">
+      <h3>Move to Human Interview</h3>
+      <button class="icon-btn" value="cancel" type="submit">×</button>
+    </div>
+    <input type="hidden" id="humanApplicationId">
+    <label>Interview Type
+      <select id="humanInterviewType" class="input">
+        <option value="personal_interview">Personal Interview</option>
+        <option value="hr_interview">HR Interview</option>
+        <option value="technical_interview">Technical Interview</option>
+      </select>
+    </label>
+    <label>Assigned Interviewer
+      <select id="humanInterviewerId" class="input"></select>
+    </label>
+    <label>Interview Date
+      <input id="humanScheduledDate" class="input" type="date">
+    </label>
+    <div class="hero-actions right">
+      <button class="btn secondary" value="cancel" type="submit">Cancel</button>
+      <button class="btn" id="confirmHumanInterviewBtn" type="button">Move Candidate</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/candidate_pipeline.js') }}"></script>
+{% endblock %}

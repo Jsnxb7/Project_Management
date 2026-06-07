@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Interview Room</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/interview_pages_v2.css') }}" />
+</head>
+<body class="interview-v2-body" data-room-code="{{ room_code }}" data-page-role="human">
+  <div id="iv2Loader" class="iv2-loader"><div class="iv2-loader-card"><div class="iv2-spinner"></div><h3 id="iv2LoaderTitle">Connecting...</h3><p id="iv2LoaderText" class="iv2-muted">Please wait.</p></div></div>
+
+  <main class="iv2-page">
+    <section class="iv2-shell">
+      <header class="iv2-header">
+        <div class="iv2-title">
+          <h1 id="humanRoomHeading">Personal Interview Room</h1>
+          <p id="humanRoomStatus">Preparing live room...</p>
+        </div>
+        <div class="iv2-actions">
+          <button id="humanRefreshBtn" class="iv2-btn">Refresh</button>
+          <button id="humanEndCallBtn" class="iv2-btn bad">End Call</button>
+        </div>
+      </header>
+
+      <section class="iv2-grid human">
+        <section class="iv2-card">
+          <div class="iv2-card-header"><h2>Live Interview</h2><span id="humanConnectionPill" class="iv2-pill warn">Not connected</span></div>
+          <div class="iv2-card-body iv2-stack">
+            <div class="iv2-video-grid">
+              <div class="iv2-video-card"><h3>Your Camera</h3><video id="localVideo" class="iv2-video" autoplay playsinline muted></video></div>
+              <div class="iv2-video-card"><h3>Remote Participant</h3><video id="remoteVideo" class="iv2-video" autoplay playsinline></video></div>
+            </div>
+            <div class="iv2-row">
+              <button id="humanEnableMediaBtn" class="iv2-btn primary">Enable Camera/Mic</button>
+              <button id="humanMuteBtn" class="iv2-btn" disabled>Mute</button>
+              <button id="humanCameraBtn" class="iv2-btn" disabled>Camera Off</button>
+              <button id="humanStartCallBtn" class="iv2-btn good" disabled>Start Peer Call</button>
+            </div>
+            <div id="humanEvents" class="iv2-transcript-list"></div>
+          </div>
+        </section>
+
+        <aside class="iv2-side">
+          <div class="iv2-card">
+            <div class="iv2-card-header"><h3>Room Info</h3><span id="humanRolePill" class="iv2-pill">Role</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <div><div class="iv2-mini">Candidate</div><strong id="humanCandidateName">—</strong></div>
+              <div><div class="iv2-mini">Interviewer</div><strong id="humanInterviewerName">—</strong></div>
+              <div id="humanCandidateSafeInfo" class="iv2-muted">Only required interview details are shown here.</div>
+            </div>
+          </div>
+
+          <div id="humanInterviewerPanel" class="iv2-card iv2-hidden">
+            <div class="iv2-card-header"><h3>Finish Interview</h3><span class="iv2-pill good">Interviewer</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <div id="humanAiSummary" class="iv2-muted">AI summary will appear here for assigned interviewer/controller.</div>
+              <div class="iv2-speech-draft">
+                <div class="iv2-row">
+                  <button id="humanStartRecordingBtn" class="iv2-btn" type="button">Start Recording</button>
+                  <button id="humanStopRecordingBtn" class="iv2-btn bad" type="button" disabled>Stop & Save Recording</button>
+                </div>
+                <div id="humanRecordingStatus" class="iv2-mini">Recording is optional and controlled by the interviewer.</div>
+              </div>
+              <label class="iv2-label">Interviewer Remarks<textarea id="humanNotesBox" class="iv2-textarea" placeholder="Add final remarks for this personal interview..."></textarea></label>
+              <button id="humanSubmitResultBtn" class="iv2-btn primary">Finish Interview</button>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/interviews/human_interview_room.js') }}"></script>
+</body>
+</html>

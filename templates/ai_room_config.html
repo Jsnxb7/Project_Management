@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Room Setup</title>
+  <style>html:not([data-iv2-auth-gate="open"]) body{visibility:hidden}</style>
+  <script>
+    (function () {
+      try {
+        var user = JSON.parse(localStorage.getItem("user") || "{}");
+        var role = String(user.hrms_role || user.portal_role || user.role || "").toLowerCase().replace(/\s+/g, "_");
+        if (role === "candidate") {
+          window.location.replace("/rooms/{{ room_code }}/ai-interview");
+          return;
+        }
+      } catch (e) {}
+      document.documentElement.dataset.iv2AuthGate = "open";
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/interview_pages_v2.css') }}" />
+</head>
+<body class="interview-v2-body" data-room-code="{{ room_code }}" data-page-role="controller">
+  <div id="iv2Loader" class="iv2-loader"><div class="iv2-loader-card"><div class="iv2-spinner"></div><h3 id="iv2LoaderTitle">Working...</h3><p id="iv2LoaderText" class="iv2-muted">Please wait.</p></div></div>
+
+  <main class="iv2-page">
+    <section class="iv2-shell">
+      <header class="iv2-header">
+        <div class="iv2-title">
+          <h1>AI Room Setup</h1>
+          <p>Room <strong id="cfgRoomCode">{{ room_code }}</strong> · controller-only setup</p>
+        </div>
+        <div class="iv2-actions">
+          <a class="iv2-btn" href="/candidate-pipeline">Pipeline & Decisions</a>
+          <a class="iv2-btn" href="/rooms/{{ room_code }}/ai-interview">Candidate View Preview</a>
+        </div>
+      </header>
+
+      <section class="iv2-grid config">
+        <aside class="iv2-card">
+          <div class="iv2-card-header"><h2>Room Status</h2><span id="cfgStatusPill" class="iv2-pill warn">Loading</span></div>
+          <div class="iv2-card-body iv2-stack">
+            <div><div class="iv2-mini">Candidate</div><strong id="cfgCandidateName">—</strong></div>
+            <div><div class="iv2-mini">Job</div><strong id="cfgJobTitle">—</strong></div>
+            <div><div class="iv2-mini">Interview Date</div><strong id="cfgInterviewDate">Not set</strong></div>
+            <div class="iv2-row">
+              <button id="cfgAutoConfigBtn" class="iv2-btn primary">Auto Configure Room</button>
+              <button id="cfgRefreshBtn" class="iv2-btn">Refresh</button>
+              <button id="cfgSetTodayBtn" class="iv2-btn good">Set Today as Interview Date</button>
+            </div>
+            <div id="cfgMessages" class="iv2-mini"></div>
+          </div>
+        </aside>
+
+        <section class="iv2-stack">
+          <div class="iv2-card iv2-quick-card">
+            <div class="iv2-card-header"><h2>Simple Setup</h2><span class="iv2-pill good">Recommended</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <p class="iv2-muted">Auto setup uses the candidate resume and job details to generate questions, set today as the interview date, and unlock candidate entry.</p>
+              <div class="iv2-row">
+                <button id="cfgAutoConfigBtnMain" class="iv2-btn primary">Auto Configure & Unlock</button>
+                <a class="iv2-btn" href="/rooms/{{ room_code }}/ai-interview">Open Candidate Page</a>
+              </div>
+            </div>
+          </div>
+
+          <details class="iv2-details-card">
+            <summary class="iv2-details-summary"><span>Manual setup</span><span class="iv2-pill">Advanced</span></summary>
+            <div class="iv2-stack">
+          <div class="iv2-card">
+            <div class="iv2-card-header"><h2>Documents</h2><span class="iv2-pill">Resume + Tech Stack</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <div class="iv2-spread">
+                <div><strong>Resume TXT</strong><div id="cfgResumeStatus" class="iv2-mini">Checking saved screening resume...</div></div>
+                <div class="iv2-row"><button id="cfgPrepareResumeBtn" class="iv2-btn">Prepare Resume TXT</button><button id="cfgDeleteResumeBtn" class="iv2-btn bad">Delete Resume TXT</button></div>
+              </div>
+              <div class="iv2-file">
+                <label class="iv2-label">Upload Tech Stack / Job Requirement TXT
+                  <input id="cfgTechStackFile" type="file" accept=".txt,.md,.text" />
+                </label>
+                <div class="iv2-row" style="margin-top:12px"><button id="cfgUploadTechBtn" class="iv2-btn primary">Upload Tech Stack</button><span id="cfgTechStatus" class="iv2-mini">No file uploaded</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="iv2-card">
+            <div class="iv2-card-header"><h2>RAG Question Generation</h2><span id="cfgRagPill" class="iv2-pill warn">Pending</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <div class="iv2-row">
+                <button id="cfgRunRagBtn" class="iv2-btn primary">Run RAG + Generate Questions</button>
+                <button id="cfgFinalizeBtn" class="iv2-btn good">Finalize Room</button>
+              </div>
+              <div id="cfgRagPreview" class="iv2-transcript-list"></div>
+            </div>
+          </div>
+            </div>
+          </details>
+
+          <div class="iv2-card">
+            <div class="iv2-card-header"><h2>Controller Result Area</h2><span class="iv2-pill">After AI interview</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <div id="cfgResultSummary" class="iv2-muted">Result will appear here after the candidate completes the AI interview.</div>
+              <div>
+                <div class="iv2-mini">Recordings</div>
+                <div id="cfgRecordingsList" class="iv2-recording-list"><div class="iv2-muted">No recordings saved yet.</div></div>
+              </div>
+              <div class="iv2-row">
+                <button id="cfgViewReportBtn" class="iv2-btn">Refresh Report</button>
+                <button id="cfgManualShortlistBtn" class="iv2-btn good">Manual Shortlist</button>
+                <button id="cfgMovePersonalBtn" class="iv2-btn good">Move to Personal Interview</button>
+                <button id="cfgMoveHrBtn" class="iv2-btn good">Move to HR Interview</button>
+                <button id="cfgRejectBtn" class="iv2-btn bad">Reject</button>
+              </div>
+              <div id="cfgTranscriptPanel" class="iv2-stack" hidden>
+                <div class="iv2-card-header compact"><h2>Interview Transcript</h2><span class="iv2-pill">Question + Answer Chat</span></div>
+                <div id="cfgTranscriptList" class="iv2-transcript-list"><div class="iv2-muted">Transcript will appear here after completion.</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/interviews/ai_room_config.js') }}"></script>
+</body>
+</html>

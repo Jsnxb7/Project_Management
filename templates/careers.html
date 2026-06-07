@@ -10,7 +10,9 @@
     <a class="btn" href="/apply">Apply Now</a>
 </section>
 <section class="panel">
+    <div class="toolbar-right" style="margin-bottom:14px"><input id="publicJobSearch" type="text" placeholder="Search open roles"></div>
     <div id="publicJobs" class="card-grid"></div>
+    <div id="publicJobsPagination" class="pagination-bar"></div>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/careers.js') }}"></script>{% endblock %}

@@ -8,6 +8,8 @@ const portalRole = document.getElementById("portalRole");
 
 let roles = [];
 let searchTimer = null;
+let portalUserPage = 1;
+const portalUserLimit = 25;
 
 function tokenHeaders() {
     return {"Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}`};
@@ -44,6 +46,7 @@ function renderUsers(users, meta) {
     renderStats(meta || {});
     if (!users.length) {
         portalUserList.innerHTML = `<p class="empty">No HRMS users found.</p>`;
+        renderUserPagination(meta || {});
         return;
     }
     portalUserList.innerHTML = users.map(user => `
@@ -73,6 +76,22 @@ function renderUsers(users, meta) {
     document.querySelectorAll("[data-delete-user]").forEach(button => {
         button.addEventListener("click", () => deleteUser(button.dataset.deleteUser, button.dataset.userName || "this user"));
     });
+    renderUserPagination(meta || {});
+}
+
+function renderUserPagination(meta) {
+    const box = document.getElementById("portalUserPagination");
+    if (!box) return;
+    const total = meta.filtered_total ?? meta.total_users ?? 0;
+    if (!total || meta.pages <= 1) {
+        box.innerHTML = total ? `<span class="muted">Showing ${escapeHTML(total)} users</span>` : "";
+        return;
+    }
+    box.innerHTML = `<button class="btn small secondary" ${meta.has_prev ? "" : "disabled"} data-user-page="prev">Previous</button>
+        <span class="muted">Page ${escapeHTML(meta.page)} of ${escapeHTML(meta.pages)} - ${escapeHTML(total)} users</span>
+        <button class="btn small secondary" ${meta.has_next ? "" : "disabled"} data-user-page="next">Next</button>`;
+    box.querySelector("[data-user-page='prev']")?.addEventListener("click", () => { portalUserPage = Math.max(1, portalUserPage - 1); loadUsers(); });
+    box.querySelector("[data-user-page='next']")?.addEventListener("click", () => { portalUserPage += 1; loadUsers(); });
 }
 
 async function loadRoles() {
@@ -87,7 +106,9 @@ async function loadRoles() {
 async function loadUsers() {
     if (!requireAuth()) return;
     const q = (portalUserSearch?.value || "").trim();
-    const url = q ? `/api/portal/users?q=${encodeURIComponent(q)}` : "/api/portal/users";
+    const params = new URLSearchParams({page: portalUserPage, limit: portalUserLimit});
+    if (q) params.set("q", q);
+    const url = `/api/portal/users?${params.toString()}`;
     const res = await fetch(url, {headers: tokenHeaders()});
     const data = await res.json();
     if (!data.success) {
@@ -139,6 +160,7 @@ if (portalUserForm) {
 
 portalUserSearch?.addEventListener("input", () => {
     clearTimeout(searchTimer);
+    portalUserPage = 1;
     searchTimer = setTimeout(loadUsers, 300);
 });
 

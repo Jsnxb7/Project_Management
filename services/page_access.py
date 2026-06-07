@@ -9,6 +9,7 @@ PAGE_ACCESS = {
     "/performance": lambda perms: perms.get("can_view_performance"),
     "/recruitment": lambda perms: perms.get("can_view_recruitment"),
     "/applications": lambda perms: perms.get("can_view_recruitment"),
+    "/candidate-pipeline": lambda perms: perms.get("can_view_recruitment"),
     "/second-round-candidates": lambda perms: perms.get("can_view_recruitment"),
     "/voice-interview": lambda perms: perms.get("can_run_voice_interviews"),
     "/interviews": lambda perms: perms.get("can_run_voice_interviews"),

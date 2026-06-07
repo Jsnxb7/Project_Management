@@ -11,3 +11,11 @@ openpyxl
 PyPDF2
 python-docx
 pdfplumber
+
+flask-socketio
+eventlet
+faster-whisper
+gTTS
+sentence-transformers
+accelerate
+language-tool-python

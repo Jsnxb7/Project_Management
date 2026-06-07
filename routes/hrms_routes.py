@@ -202,6 +202,15 @@ def list_employees():
     if not user:
         return fail("User not found", 404)
     q = (request.args.get("q") or "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = max(1, min(int(request.args.get("limit", 25)), 100))
+    except (TypeError, ValueError):
+        limit = 25
+    skip = (page - 1) * limit
     search_query = {}
     if q:
         regex = {"$regex": q, "$options": "i"}
@@ -213,12 +222,15 @@ def list_employees():
     permissions = role_permissions(user_role(user))
     all_query = with_search({} if permissions.get("is_super_user") else department_employee_query(user))
     assigned_query = with_search(assigned_employee_query(user))
-    employees = list(employees_collection.find(all_query).sort("name", 1).limit(200))
-    assigned_employees = list(employees_collection.find(assigned_query).sort("name", 1).limit(200))
+    total = employees_collection.count_documents(all_query)
+    pages = max(1, (total + limit - 1) // limit)
+    employees = list(employees_collection.find(all_query).sort("name", 1).skip(skip).limit(limit))
+    assigned_employees = list(employees_collection.find(assigned_query).sort("name", 1).limit(50))
     return ok("Employees fetched", {
         "employees": [serialize_employee(e) for e in employees],
         "department_employees": [serialize_employee(e) for e in employees],
         "assigned_employees": [serialize_employee(e) for e in assigned_employees],
+        "meta": {"page": page, "limit": limit, "total": total, "pages": pages, "has_next": page < pages, "has_prev": page > 1},
     })
 
 

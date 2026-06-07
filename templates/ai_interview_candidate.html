@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Interview</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/interview_pages_v2.css') }}" />
+</head>
+<body class="interview-v2-body" data-room-code="{{ room_code }}" data-page-role="candidate">
+  <div id="iv2Loader" class="iv2-loader"><div class="iv2-loader-card"><div class="iv2-spinner"></div><h3 id="iv2LoaderTitle">Preparing Interview...</h3><p id="iv2LoaderText" class="iv2-muted">Please wait.</p></div></div>
+
+  <main class="iv2-page">
+    <section class="iv2-shell">
+      <header class="iv2-header">
+        <div class="iv2-title">
+          <h1>AI Interview Room</h1>
+          <p id="aiCandidateStatus">Waiting for room status...</p>
+        </div>
+        <div class="iv2-actions">
+          <button id="aiStartBtn" class="iv2-btn primary">Start AI Interview</button>
+        </div>
+      </header>
+
+      <section class="iv2-chat-layout">
+        <section class="iv2-card iv2-chat-main">
+          <div class="iv2-card-header">
+            <h2>Interview Conversation</h2>
+            <span id="aiProgressPill" class="iv2-pill">Not started</span>
+          </div>
+          <div id="aiChatFeed" class="iv2-chat-feed">
+            <div class="iv2-msg"><div class="iv2-avatar-small">AI</div><div class="iv2-bubble">Your AI interview will begin when you click Start AI Interview.</div></div>
+          </div>
+          <div class="iv2-chat-composer">
+            <label class="iv2-label">Your Answer
+              <textarea id="aiAnswerBox" class="iv2-textarea" placeholder="Type your answer here. Press Ctrl + Enter to submit." disabled></textarea>
+            </label>
+            <div class="iv2-speech-draft">
+              <div class="iv2-row">
+                <button id="aiSpeechStartBtn" class="iv2-btn" type="button" disabled>Answer by Speech</button>
+                <button id="aiSpeechStopBtn" class="iv2-btn bad" type="button" disabled>Stop Speech</button>
+                <button id="aiSpeechClearBtn" class="iv2-btn" type="button" disabled>Clear Draft</button>
+                <button id="aiSpeechSendBtn" class="iv2-btn primary" type="button" disabled>Send Draft</button>
+              </div>
+              <label class="iv2-label">Live Speech Transcript
+                <textarea id="aiSpeechTranscriptBox" class="iv2-textarea iv2-compact-textarea" placeholder="Your speech transcript will appear here. You can edit it before sending." disabled></textarea>
+              </label>
+              <div id="aiSpeechStatus" class="iv2-mini">Speech answer is available after the interview starts.</div>
+            </div>
+            <div class="iv2-composer-row">
+              <label class="iv2-row iv2-mini"><input id="aiAutoPlayToggle" type="checkbox" checked /> Auto-play AI question when ready</label>
+              <button id="aiSubmitBtn" class="iv2-btn primary" disabled>Submit Answer</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="iv2-side">
+          <div class="iv2-card iv2-ai-avatar">
+            <div id="aiAvatarOrb" class="iv2-avatar-orb"></div>
+            <h2>AI Interviewer</h2>
+            <div id="aiVoiceBars" class="iv2-voice-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <p id="aiCurrentQuestion" class="iv2-muted">Current question will appear here.</p>
+          </div>
+
+          <div class="iv2-card">
+            <div class="iv2-card-header"><h3>Camera & Voice</h3><span id="aiMediaPill" class="iv2-pill">Off</span></div>
+            <div class="iv2-card-body iv2-stack">
+              <video id="aiSelfVideo" class="iv2-video" autoplay playsinline muted></video>
+              <div class="iv2-row">
+                <button id="aiEnableMediaBtn" class="iv2-btn">Enable</button>
+                <button id="aiMuteBtn" class="iv2-btn" disabled>Mute</button>
+                <button id="aiCameraBtn" class="iv2-btn" disabled>Camera Off</button>
+                <button id="aiStopMediaBtn" class="iv2-btn bad" disabled>Stop</button>
+              </div>
+              <div id="aiRecordingStatus" class="iv2-mini">Recording starts with the AI interview when camera/mic is allowed.</div>
+              <div id="aiVoiceDetect" class="iv2-voice-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+          </div>
+
+          <details class="iv2-details-card">
+            <summary class="iv2-details-summary"><span>Transcript</span><button id="aiRefreshTranscriptBtn" class="iv2-btn" type="button">Refresh</button></summary>
+            <div class="iv2-card-body"><div id="aiTranscriptList" class="iv2-transcript-list"></div></div>
+          </details>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/interviews/media_self_preview.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/interviews/ai_interview_candidate.js') }}"></script>
+</body>
+</html>
