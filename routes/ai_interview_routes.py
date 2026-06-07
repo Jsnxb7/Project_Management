@@ -20,6 +20,7 @@ from services.ai_interview_service import (
     ensure_room_ai_defaults,
     ensure_config,
     prepare_resume_for_room,
+    save_resume_upload_for_room,
     save_tech_stack_upload,
     auto_configure_room,
     delete_resume_txt,
@@ -120,6 +121,14 @@ def get_room_config(room_code):
     room = ensure_room_ai_defaults(room_code)
     config = ensure_config(room_code, user.get("_id"))
     resume_status = prepare_resume_for_room(room_code, user.get("_id"))
+    _, session, app, job = room_bundle(room_code)
+    application_payload = dict(app or {})
+    if application_payload.get("_id") is not None:
+        application_payload["id"] = str(application_payload.get("_id"))
+        application_payload["_id"] = str(application_payload.get("_id"))
+    for key in ["candidate_user_id", "job_id", "session_id", "employee_id"]:
+        if application_payload.get(key) is not None:
+            application_payload[key] = str(application_payload.get(key))
     return ok("AI interview config fetched", {
         "room": {
             "room_code": room_code,
@@ -130,6 +139,7 @@ def get_room_config(room_code):
             "candidate_entry_lock_reason": room.get("candidate_entry_lock_reason"),
         },
         "config": serialize_config(config),
+        "application": application_payload,
         "resume": resume_status,
         "model_status": AIInterviewModelManager.status(),
     })
@@ -143,6 +153,20 @@ def prepare_resume(room_code):
         return error
     result = prepare_resume_for_room(room_code, user.get("_id"))
     return ok("Resume TXT prepared" if result.get("ok") else "Resume TXT missing", result)
+
+
+@ai_interview_bp.post("/rooms/<room_code>/config/upload-resume")
+@jwt_required()
+def upload_resume_for_rag(room_code):
+    user, error = require_ai_controller(room_code)
+    if error:
+        return error
+    try:
+        result = save_resume_upload_for_room(room_code, request.files.get("resume") or request.files.get("file"), user.get("_id"))
+        emit_ai_room_event(room_code, "ai_resume_uploaded", {"resume": result}, user.get("_id"))
+        return ok("Resume replaced for AI RAG. Run RAG again before finalizing.", result)
+    except ValueError as exc:
+        return fail(str(exc), 400)
 
 
 @ai_interview_bp.delete("/rooms/<room_code>/config/resume-txt")

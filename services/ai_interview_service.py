@@ -258,6 +258,75 @@ def delete_resume_txt(room_code: str) -> Dict[str, Any]:
     return {"deleted": bool(path), "path": path}
 
 
+def save_resume_upload_for_room(room_code: str, file_storage, uploaded_by=None) -> Dict[str, Any]:
+    """Upload/replace the resume used by AI-room RAG.
+
+    This does not change the candidate account. It updates the linked application
+    resume files, converts the uploaded resume to TXT, and resets the AI RAG
+    state so controllers can regenerate questions from the new filtered resume.
+    """
+    room, session, app, job = room_bundle(room_code)
+    if not room or not session or not app:
+        raise ValueError("Room, session, or application not found")
+    if not file_storage or not (file_storage.filename or "").strip():
+        raise ValueError("Upload a resume file first")
+    original_name = secure_filename(file_storage.filename or "resume")
+    ext = Path(original_name).suffix.lower()
+    allowed = {".pdf", ".doc", ".docx", ".txt", ".rtf", ".tex"}
+    if ext not in allowed:
+        raise ValueError("Resume must be PDF, DOC, DOCX, TXT, RTF, or TEX")
+
+    upload_root = Path("static/uploads/resumes")
+    upload_root.mkdir(parents=True, exist_ok=True)
+    unique_name = f"{secrets.token_hex(8)}_{original_name}"
+    stored_path = upload_root / unique_name
+    file_storage.save(stored_path)
+
+    conversion = convert_resume_to_txt(stored_path)
+    if not conversion.get("ok") or not conversion.get("txt_path"):
+        raise ValueError(conversion.get("message") or "Could not convert uploaded resume to TXT")
+
+    text = conversion.get("text", "") or ""
+    config = get_config(room_code) or _create_base_config(room, session, app, job, uploaded_by)
+    now = utcnow()
+    app_updates = {
+        "resume_path": str(stored_path),
+        "resume_filename": original_name,
+        "resume_txt_path": conversion.get("txt_path"),
+        "resume_text": text[:50000],
+        "resume_txt_available": True,
+        "resume_txt_deleted": False,
+        "resume_reuploaded_for_ai": True,
+        "resume_reuploaded_at": now,
+        "conversion_info": {k: v for k, v in conversion.items() if k != "text"},
+        "updated_at": now,
+    }
+    applications_collection.update_one({"_id": app["_id"]}, {"$set": app_updates})
+    ai_interview_configs_collection.update_one({"_id": config["_id"]}, {"$set": {
+        "resume_txt_path": conversion.get("txt_path"),
+        "resume_txt_source": "controller_resume_upload",
+        "status": "draft",
+        "rag_status": "pending",
+        "rag": None,
+        "forced_questions": [],
+        "updated_at": now,
+    }})
+    interview_rooms_collection.update_one({"_id": room["_id"]}, {"$set": {
+        "ai_interview_config_status": "not_configured",
+        "candidate_entry_locked": True,
+        "candidate_entry_lock_reason": "Resume was replaced. Run RAG again and finalize the AI room.",
+        "updated_at": now,
+    }})
+    return {
+        "ok": True,
+        "resume_path": str(stored_path),
+        "resume_txt_path": conversion.get("txt_path"),
+        "resume_filename": original_name,
+        "text_preview": (text or "")[:1000],
+        "config": serialize_config(ai_interview_configs_collection.find_one({"_id": config["_id"]})),
+    }
+
+
 def save_tech_stack_upload(room_code: str, file_storage, configured_by=None) -> Dict[str, Any]:
     room, session, app, job = room_bundle(room_code)
     if not room or not session or not app:

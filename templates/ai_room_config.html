@@ -75,6 +75,12 @@
                 <div class="iv2-row"><button id="cfgPrepareResumeBtn" class="iv2-btn">Prepare Resume TXT</button><button id="cfgDeleteResumeBtn" class="iv2-btn bad">Delete Resume TXT</button></div>
               </div>
               <div class="iv2-file">
+                <label class="iv2-label">Upload Different Resume for AI RAG
+                  <input id="cfgResumeFile" type="file" accept=".pdf,.doc,.docx,.txt,.rtf,.tex" />
+                </label>
+                <div class="iv2-row" style="margin-top:12px"><button id="cfgUploadResumeBtn" class="iv2-btn primary">Upload New Resume</button><span class="iv2-mini">Replaces the resume used for AI question generation only. Run RAG again after upload.</span></div>
+              </div>
+              <div class="iv2-file">
                 <label class="iv2-label">Upload Tech Stack / Job Requirement TXT
                   <input id="cfgTechStackFile" type="file" accept=".txt,.md,.text" />
                 </label>

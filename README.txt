@@ -26,6 +26,7 @@ Core capabilities in the current app:
 - AI interview controller setup page.
 - AI interview candidate page.
 - AI interview report with full transcript display.
+- Resume RAG uses the original deterministic evidence/question-generation logic on the extracted resume text. Controllers can upload a different resume on the AI room setup page, then rerun RAG and finalize again.
 - Manual HR shortlist override even when AI rejects or asks for review.
 - Human interview room with candidate/interviewer media controls.
 - Socket.IO/live-room support for interview room events and signalling foundations.
@@ -83,7 +84,7 @@ services/                      HRMS, recruitment, AI interview, attendance, payr
 static/css/                    Global and page-specific styles
 static/js/                     Page scripts and interview-room scripts
 templates/                     Flask/Jinja pages
-scripts/                       Setup, repair, and demo scripts
+scripts/                       Setup, Mongo first-run, health-check, repair, and demo scripts
 test/                          Patch notes, migration utilities, sample data, older helper scripts
 _deprecated_second_third_round_ui/  Deprecated compatibility/reference files
 README.md / README.txt         Updated project documentation
@@ -117,7 +118,7 @@ AI_INTERVIEW_UI_AND_SCALING_NOTES.md Interview-room scaling notes
 | Human Interview Room | `/rooms/<room_code>/human-interview` | Personal/HR interview room with media controls |
 | Compatibility Interview Link | `/interview-room/<room_code>` | Redirects users to the correct room page by role |
 | Candidate Process | `/candidate-process` | Candidate-facing process/schedule page |
-| Voice Interview | `/voice-interview` | Older/lab-style AI answer evaluation page |
+| AI Voice Lab | `/voice-interview` | Placeholder page showing Coming Soon while the standalone voice lab is rebuilt |
 | Themes | `/themes` | User theme kits and UI preferences |
 | Notifications | `/notifications` | User notification center |
 | Messages | `/messages` | HRMS messaging |
@@ -360,6 +361,7 @@ Controller setup supports:
 
 - Viewing room configuration status.
 - Preparing converted resume TXT from saved screening data.
+- Uploading/replacing the resume used for AI RAG when the candidate needs to provide a different file.
 - Removing prepared resume TXT reference.
 - Uploading a tech-stack TXT file.
 - Auto-generating config values.
@@ -375,6 +377,7 @@ GET    /api/ai-interview/models/status
 POST   /api/ai-interview/models/unload
 GET    /api/ai-interview/rooms/<room_code>/config
 POST   /api/ai-interview/rooms/<room_code>/config/prepare-resume
+POST   /api/ai-interview/rooms/<room_code>/config/upload-resume
 DELETE /api/ai-interview/rooms/<room_code>/config/resume-txt
 POST   /api/ai-interview/rooms/<room_code>/config/upload-tech-stack
 POST   /api/ai-interview/rooms/<room_code>/config/auto
@@ -785,47 +788,84 @@ hrms_ui_page_groups
 
 ---
 
-## 17. Setup
+## 17. First-Time Setup
 
 ### 17.1 Requirements
 
 Install:
 
 - Python 3.10+
-- Local MongoDB server
+- Local MongoDB Community Server
 - A Windows/Linux/macOS shell
 
-Create and activate a virtual environment:
+The runtime database is local MongoDB. JSON mirror files are not used as the source of truth anymore.
 
+### 17.2 Create Virtual Environment
+
+Windows PowerShell:
+
+```powershell
 py -m venv .venv
 .\.venv\Scripts\activate
+```
 
+macOS/Linux:
 
-On macOS/Linux:
-
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
-
+```
 
 Install packages:
 
+```bash
 pip install -r requirements.txt
+```
 
+### 17.3 One-Time Local MongoDB Setup Script
 
-### 17.2 Environment
+A first-run setup script is included in the `scripts/` folder. It creates local Mongo data/log folders, starts a local MongoDB server on `127.0.0.1:27017` when one is not already running, writes local Mongo values into `.env`, pings the server, and applies the app indexes.
 
-Create `.env` from `.env.example`:
+Windows PowerShell, from the project root:
 
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_local_mongo_windows.ps1
+```
+
+macOS/Linux, from the project root:
+
+```bash
+bash scripts/setup_local_mongo_linux_mac.sh
+```
+
+The scripts use these defaults:
+
+```env
+MONGO_URI=mongodb://127.0.0.1:27017
+DB_NAME=ai_hrms_local
+```
+
+The setup script is safe to run again. It will reuse the running MongoDB server if one is already active.
+
+### 17.4 Manual Environment Setup
+
+If you do not want to use the setup script, create `.env` from `.env.example` manually.
+
+Windows:
+
+```powershell
 copy .env.example .env
+```
 
+macOS/Linux:
 
-On macOS/Linux:
-
+```bash
 cp .env.example .env
+```
 
+Then confirm these values exist:
 
-Example variables:
-
+```env
 MONGO_URI=mongodb://127.0.0.1:27017
 DB_NAME=ai_hrms_local
 SECRET_KEY=change-this-local-secret
@@ -833,31 +873,52 @@ JWT_SECRET_KEY=change-this-local-jwt-secret
 FLASK_ENV=development
 MONGO_MAX_POOL_SIZE=200
 MONGO_MIN_POOL_SIZE=5
-
+```
 
 Do not commit real `.env` files.
 
-### 17.3 Run
+### 17.5 Check MongoDB Connection
 
-Start MongoDB, then run:
+Run this whenever you want to verify the local server and indexes:
 
+```bash
+python scripts/check_local_mongo.py
+```
+
+Expected output includes:
+
+```text
+MongoDB connection OK
+Local MongoDB setup check completed successfully.
+```
+
+### 17.6 Run the App
+
+Start MongoDB first. If you used the setup script, MongoDB should already be running. Then run:
+
+```bash
 python app.py
-
+```
 
 Open:
 
+```text
 http://127.0.0.1:5000
+```
 
+The first signup becomes the Super User. You can also create one manually:
 
-The first signup becomes the Super User.
-
-### 17.4 Optional Setup Scripts
-
+```bash
 python scripts/create_super_user.py
+```
+
+### 17.7 Other Optional Scripts
+
+```bash
 python scripts/demo_recruitment_screening.py
 python scripts/repair_org_relations.py
 python scripts/repair_team_relations.py
-
+```
 
 Use repair/migration scripts only after checking their source and matching them to your current database.
 
@@ -880,10 +941,13 @@ Use repair/migration scripts only after checking their source and matching them 
 | `services/recruitment_screening_model.py` | Resume/JD scoring model |
 | `services/ai_recruitment_service.py` | Resume extraction, conversion, screening wrapper, answer evaluation |
 | `services/ai_interview_service.py` | AI interview workflow, transcript/result logic, model lifecycle helpers |
-| `services/ai_interview_rag.py` | RAG/question-generation support |
+| `services/ai_interview_rag.py` | Original deterministic RAG/question-generation support using resume and tech-stack evidence extraction |
 | `services/candidate_pipeline_service.py` | Candidate phase and employee conversion helpers |
 | `services/page_access.py` | Page permission mapping |
 | `services/role_access.py` | Role and module visibility helpers |
+| `scripts/setup_local_mongo_windows.ps1` | One-time Windows local MongoDB setup and startup script |
+| `scripts/setup_local_mongo_linux_mac.sh` | One-time Linux/macOS local MongoDB setup and startup script |
+| `scripts/check_local_mongo.py` | MongoDB ping, collection, and index health check |
 | `static/js/recruitment.js` | Recruitment workspace UI, paginated jobs, shortlisted preview |
 | `static/js/careers.js` | Public careers search and pagination |
 | `static/js/applications.js` | Applications list and reports |

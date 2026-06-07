@@ -1,32 +1,17 @@
 {% extends "base.html" %}
-{% block title %}AI Voice Interview | AI PeopleOps HRMS{% endblock %}
+{% block title %}AI Voice Lab | AI PeopleOps HRMS{% endblock %}
 {% block content %}
 <section class="page-head">
-    <p class="eyebrow">Hybrid AI Voice Model</p>
-    <h1>Voice Interview Lab</h1>
-    <p class="muted">Prototype lab for the STT → transcript → RAG/similarity scoring → chat response → Piper TTS pipeline. This page simulates the transcript/evaluation layer and is ready to wire to Whisper/Piper services.</p>
+    <p class="eyebrow">AI Voice Lab</p>
+    <h1>Coming Soon</h1>
+    <p class="muted">The standalone AI Voice Lab is being rebuilt. Voice features used inside interview rooms will remain separate from this placeholder page.</p>
 </section>
-<section class="details-grid">
-    <div class="panel">
-        <h2>Evaluate Candidate Answer</h2>
-        <form id="voiceEvalForm">
-            <label>Question</label><textarea id="voiceQuestion">Explain how you used Flask and MongoDB in a project.</textarea>
-            <label>Expected Answer / Rubric / Retrieved Doc Chunk</label><textarea id="expectedAnswer">A strong answer should mention Flask routes, REST APIs, request handling, MongoDB collections, CRUD operations, authentication, and deployment considerations.</textarea>
-            <label>Candidate Transcript</label><textarea id="candidateAnswer" placeholder="Paste or stream transcript from STT here..."></textarea>
-            <button class="btn full" type="submit">Evaluate Transcript</button>
-        </form>
-    </div>
-    <div class="panel">
-        <h2>Voice Pipeline</h2>
-        <div class="mini-list">
-            <div class="mini-item"><span>STT</span><strong>Whisper tiny/base or faster-distil-whisper</strong></div>
-            <div class="mini-item"><span>Chat</span><strong>Small HF instruct model</strong></div>
-            <div class="mini-item"><span>Knowledge</span><strong>JD + role docs retrieval</strong></div>
-            <div class="mini-item"><span>Verification</span><strong>Similarity + keyword scoring</strong></div>
-            <div class="mini-item"><span>TTS</span><strong>Piper voice output</strong></div>
-        </div>
+<section class="panel empty-state" style="text-align:center; padding:48px 24px;">
+    <h2>AI Voice Lab content is coming soon</h2>
+    <p class="muted" style="max-width:680px; margin:12px auto 0;">This page is reserved for the future STT/TTS voice model lab. For now, use the AI interview room setup and candidate interview pages for the active interview workflow.</p>
+    <div style="margin-top:24px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <a class="btn" href="/recruitment">Back to Recruitment</a>
+        <a class="btn secondary" href="/interviews">Open Interviews</a>
     </div>
 </section>
-<section class="panel" id="voiceResult" hidden></section>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/voice_interview.js') }}"></script>{% endblock %}

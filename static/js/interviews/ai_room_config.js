@@ -20,7 +20,8 @@
       const status = config.status || room.ai_interview_config_status || "not_configured";
       iv2.setPill("cfgStatusPill", status, status === "configured" ? "good" : "warn");
       iv2.setPill("cfgRagPill", config.rag_status || "pending", config.rag_status === "completed" ? "good" : "warn");
-      document.getElementById("cfgResumeStatus").textContent = config.resume_txt_path ? `Found: ${config.resume_txt_path}` : "Resume TXT missing. Prepare it from screening data.";
+      const resumeLabel = app.resume_filename ? `${app.resume_filename} · ${config.resume_txt_path || app.resume_txt_path || "TXT ready"}` : (config.resume_txt_path || app.resume_txt_path || "");
+      document.getElementById("cfgResumeStatus").textContent = resumeLabel ? `Found: ${resumeLabel}` : "Resume TXT missing. Prepare it from screening data or upload a different resume.";
       document.getElementById("cfgTechStatus").textContent = config.tech_stack_txt_path ? `Uploaded: ${config.tech_stack_txt_path}` : "No tech stack uploaded.";
       renderQuestions(config.forced_questions || data.forced_questions || []);
       await loadReport(false);
@@ -55,6 +56,25 @@
     try { await iv2.api(apiUrl("/config/resume-txt"), { method: "DELETE" }); await loadConfig(); }
     catch (e) { alert(e.message); }
     finally { iv2.hideLoader(); }
+  }
+
+  async function uploadResume() {
+    const input = document.getElementById("cfgResumeFile");
+    const file = input?.files?.[0];
+    if (!file) return alert("Select a resume file first.");
+    const form = new FormData();
+    form.append("resume", file);
+    iv2.showLoader("Uploading resume", "Converting the new resume to TXT and resetting RAG...");
+    try {
+      const res = await iv2.api(apiUrl("/config/upload-resume"), { method: "POST", body: form, headers: {} });
+      iv2.toast(res.message || "Resume uploaded. Run RAG again before finalizing.");
+      if (input) input.value = "";
+      await loadConfig();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      iv2.hideLoader();
+    }
   }
 
   async function uploadTech() {
@@ -269,6 +289,7 @@
     document.getElementById("cfgAutoConfigBtnMain")?.addEventListener("click", autoConfigure);
     document.getElementById("cfgPrepareResumeBtn")?.addEventListener("click", prepareResume);
     document.getElementById("cfgDeleteResumeBtn")?.addEventListener("click", deleteResume);
+    document.getElementById("cfgUploadResumeBtn")?.addEventListener("click", uploadResume);
     document.getElementById("cfgUploadTechBtn")?.addEventListener("click", uploadTech);
     document.getElementById("cfgRunRagBtn")?.addEventListener("click", runRag);
     document.getElementById("cfgSetTodayBtn")?.addEventListener("click", setToday);
