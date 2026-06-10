@@ -1,5 +1,5 @@
 function tokenHeaders() {
-    return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}` };
+    return { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` };
 }
 
 const state = {
@@ -10,7 +10,9 @@ const state = {
     selectedEmployeeId: "",
     recordsByDate: {},
     leavesByDate: {},
+    dayDetailsByDate: {},
     loading: false,
+    toolsLoaded: false,
 };
 
 function safeUser() {
@@ -217,7 +219,7 @@ function renderCalendar(payload) {
     }).join("");
     box.innerHTML = weekdayHeader + blanks + (cells || `<div class="empty-state">No attendance data for this range.</div>`);
     updateWidgets(payload);
-    renderSelectedDay();
+    updateAttendanceAttention();
 }
 
 function updateWidgets(payload) {
@@ -246,9 +248,21 @@ function updateWidgets(payload) {
     setText("calendarRangeLabel", s === e ? fmtDate(s) : `${fmtDate(s)} → ${fmtDate(e)}`);
 }
 
-function renderSelectedDay() {
+function updateAttendanceAttention() {
+    const pendingLeaves = Number(document.getElementById("pendingLeaveCount")?.textContent || 0);
+    const pendingReviews = Number(document.getElementById("pendingReviewCount")?.textContent || 0);
+    const correctionSummary = document.getElementById("correctionSummary")?.textContent || "";
+    const meetingSummary = document.getElementById("meetingSummary")?.textContent || "";
+    const pendingCorrections = Number((correctionSummary.match(/\d+/) || [0])[0]);
+    const scheduledMeetings = Number((meetingSummary.match(/\d+/) || [0])[0]);
+    const total = pendingLeaves + pendingReviews + pendingCorrections + scheduledMeetings;
+    setText("attendanceAttentionCount", String(total));
+    setText("attendanceStatusSummary", `${total} need attention`);
+}
+
+function renderSelectedDay(detailRecords = null) {
     const date = state.selectedDate || todayKey();
-    const records = state.recordsByDate[date] || [];
+    const records = detailRecords || state.dayDetailsByDate[date] || [];
     const leaves = state.leavesByDate[date] || [];
     setText("selectedDayTitle", fmtDate(date));
     setText("selectedDaySubtitle", `${records.length} attendance record${records.length === 1 ? "" : "s"} · ${leaves.length} leave item${leaves.length === 1 ? "" : "s"}`);
@@ -282,7 +296,39 @@ function selectDay(date) {
     setMonthValue(monthKey(date));
     document.querySelectorAll(".calendar-day.selected").forEach(el => el.classList.remove("selected"));
     document.querySelector(`.calendar-day[data-date="${date}"]`)?.classList.add("selected");
-    renderSelectedDay();
+    openAttendanceDay();
+}
+
+async function loadSelectedDayDetails(force = false) {
+    const date = state.selectedDate || todayKey();
+    const box = document.getElementById("selectedDayDetails");
+    if (box) {
+        box.classList.add("empty-state");
+        box.innerHTML = "Loading day details...";
+    }
+    if (!force && state.dayDetailsByDate[date]) {
+        renderSelectedDay(state.dayDetailsByDate[date]);
+        return;
+    }
+    const employee = state.selectedEmployeeId ? `&employee_id=${encodeURIComponent(state.selectedEmployeeId)}` : "";
+    const data = await api(`/api/hrms/attendance?start=${encodeURIComponent(date)}&end=${encodeURIComponent(date)}${employee}`);
+    state.dayDetailsByDate[date] = data.success ? (data.data?.logs || []) : [];
+    renderSelectedDay(state.dayDetailsByDate[date]);
+}
+
+function openAttendanceDay() {
+    const modal = document.getElementById("attendanceDayModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    renderSelectedDay([]);
+    loadSelectedDayDetails();
+}
+
+function closeAttendanceDay() {
+    const modal = document.getElementById("attendanceDayModal");
+    if (modal) modal.hidden = true;
+    document.body.classList.remove("modal-open");
 }
 function jumpPeriod(delta) {
     const mode = document.getElementById("attendanceViewMode")?.value || "monthly";
@@ -295,6 +341,7 @@ function jumpPeriod(delta) {
     loadAttendance();
 }
 function prefillLeaveFromSelected() {
+    openAttendanceTools();
     const form = document.getElementById("leaveRequestForm");
     if (!form) return;
     form.elements.start_date.value = state.selectedDate;
@@ -302,12 +349,14 @@ function prefillLeaveFromSelected() {
     form.elements.reason.focus();
 }
 function prefillCorrectionFromSelected() {
+    openAttendanceTools();
     const form = document.getElementById("correctionForm");
     if (!form) return;
     form.elements.date.value = state.selectedDate;
     form.elements.reason.focus();
 }
 function prefillMeetingFromSelected() {
+    openAttendanceTools();
     const form = document.getElementById("meetingForm");
     if (!form) return;
     const records = state.recordsByDate[state.selectedDate] || [];
@@ -324,12 +373,11 @@ async function loadAttendance() {
     setLoading(true);
     monthValue();
     state.selectedEmployeeId = document.getElementById("attendanceEmployeeSelect")?.value || sessionStorage.getItem("attendanceEmployeeParam") || "";
-    const url = `/api/hrms/attendance/calendar?month=${encodeURIComponent(monthValue())}${state.selectedEmployeeId ? `&employee_id=${encodeURIComponent(state.selectedEmployeeId)}` : ""}`;
+    state.dayDetailsByDate = {};
+    const url = `/api/hrms/attendance/calendar?summary_only=1&month=${encodeURIComponent(monthValue())}${state.selectedEmployeeId ? `&employee_id=${encodeURIComponent(state.selectedEmployeeId)}` : ""}`;
     const data = await api(url);
     if (data.success) renderCalendar(data.data);
-    await loadLeaves();
-    if (canManagePanels()) await loadTeamData();
-    if (isSuperUser()) await loadRules();
+    if (state.toolsLoaded) await loadAttendanceTools(true);
     setLoading(false);
 }
 async function checkIn() {
@@ -509,6 +557,30 @@ async function repairManagers() {
     if (data.success || data.warning) loadAttendance();
 }
 
+async function loadAttendanceTools(force = false) {
+    if (state.toolsLoaded && !force) return;
+    await loadLeaves();
+    await loadCorrections();
+    if (canManagePanels()) await loadTeamData();
+    if (isSuperUser()) await loadRules();
+    state.toolsLoaded = true;
+    updateAttendanceAttention();
+}
+
+function openAttendanceTools() {
+    const modal = document.getElementById("attendanceToolsModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    loadAttendanceTools();
+}
+
+function closeAttendanceTools() {
+    const modal = document.getElementById("attendanceToolsModal");
+    if (modal) modal.hidden = true;
+    document.body.classList.remove("modal-open");
+}
+
 
 function checkedValues(selector) { return Array.from(document.querySelectorAll(selector + ":checked")).map(el => el.value); }
 async function bulkReviewAttendance(action) {
@@ -551,6 +623,9 @@ function initAttendancePage() {
     document.getElementById("checkInBtn")?.addEventListener("click", checkIn);
     document.getElementById("checkOutBtn")?.addEventListener("click", checkOut);
     document.getElementById("refreshAttendanceBtn")?.addEventListener("click", loadAttendance);
+    document.getElementById("openAttendanceToolsBtn")?.addEventListener("click", openAttendanceTools);
+    document.querySelectorAll("[data-close-attendance-tools]").forEach(el => el.addEventListener("click", closeAttendanceTools));
+    document.querySelectorAll("[data-close-attendance-day]").forEach(el => el.addEventListener("click", closeAttendanceDay));
     document.getElementById("prevMonthBtn")?.addEventListener("click", () => jumpPeriod(-1));
     document.getElementById("nextMonthBtn")?.addEventListener("click", () => jumpPeriod(1));
     document.getElementById("todayBtn")?.addEventListener("click", () => { state.selectedDate = todayKey(); setMonthValue(monthKey(state.selectedDate)); loadAttendance(); });

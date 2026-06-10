@@ -19,10 +19,22 @@ async function loadInterviews() {
                 ${r.ai_interview_config_status ? `<span class="round-status ${r.ai_interview_config_status === 'configured' ? 'done' : 'pending'}"><i></i>AI ${escapeHTML(r.ai_interview_config_status)}</span>` : ''}
                 ${r.ai_interview_status ? `<span class="round-status ${r.ai_interview_status === 'completed' ? 'done' : 'pending'}"><i></i>${escapeHTML(r.ai_interview_status)}</span>` : ''}
             </div>
-            <a class="btn small" href="${roomPath}">Open Room</a>
+            <div class="hero-actions">
+                <a class="btn small" href="${roomPath}">Open Room</a>
+                <button class="btn small danger" type="button" data-delete-room="${escapeHTML(r.id)}" data-room-label="${escapeHTML(r.room_code || r.candidate_name || 'this room')}">Delete Room</button>
+            </div>
         </article>`;
     }).join('') : '<p class="empty">No interview rooms assigned yet. Create them from Applications.</p>';
     renderInterviewsPagination(data.data.meta || {});
+}
+
+async function deleteRoom(id, label) {
+    if (!confirm(`Delete ${label}? This removes the room, linked session, room messages, and AI room artifacts.`)) return;
+    const res = await fetch(`/api/recruitment/interviews/${encodeURIComponent(id)}`, {method: 'DELETE', headers: authHeaders(false)});
+    const data = await res.json();
+    if (!data.success) return toast(data.message || 'Could not delete room', false, data.warning);
+    toast(data.message || 'Room deleted');
+    loadInterviews();
 }
 
 function renderInterviewsPagination(meta) {
@@ -44,4 +56,8 @@ function roomUrlForInterview(r) {
     if (['human_interview', 'personal_interview', 'hr_interview'].includes(type) || r.current_interview_phase === 'human_interview') return `/rooms/${room}/human-interview`;
     return `/rooms/${room}/configure-ai`;
 }
+document.addEventListener('click', event => {
+    const deleteBtn = event.target.closest('[data-delete-room]');
+    if (deleteBtn) deleteRoom(deleteBtn.dataset.deleteRoom, deleteBtn.dataset.roomLabel || 'this room');
+});
 loadInterviews();

@@ -852,10 +852,30 @@ def custom_payroll_payout(user, data):
     return serialize_payroll_item(hrms_payroll_items_collection.find_one({"_id": item_id})), None
 
 
-def payroll_workspace(user):
+def payroll_workspace(user, summary_only=False):
     employees = payroll_employees(user)
     ids = [e.get("_id") for e in employees if e]
     q = {"employee_id": {"$in": ids}} if ids else {"employee_id": None}
+    if summary_only:
+        return {
+            "role": user_role(user),
+            "permissions": {
+                "is_super": is_super(user),
+                "is_finance": is_finance(user),
+                "can_create_payroll": can_create_payroll(user),
+                "can_confirm_payroll": is_super(user) or bool(direct_reports(user)),
+            },
+            "employees": [],
+            "items": [],
+            "adjustments": [],
+            "profiles": [],
+            "summary": {
+                "items": hrms_payroll_items_collection.count_documents(q),
+                "pending_manager": hrms_payroll_items_collection.count_documents({**q, "status": "ready_for_manager_review"}),
+                "paid": hrms_payroll_items_collection.count_documents({**q, "payout_status": "paid"}),
+                "adjustments": hrms_payroll_adjustments_collection.count_documents(q),
+            },
+        }
     items = [serialize_payroll_item(r) for r in hrms_payroll_items_collection.find(q).sort("cycle_key", -1).limit(300)]
     adjustments = [serialize_adjustment(r) for r in hrms_payroll_adjustments_collection.find(q).sort("created_at", -1).limit(500)]
     profiles = [{"id": str(p.get("_id")), "employee_id": str(p.get("employee_id")), "employee_name": employee_name(p.get("employee_id")), "base_salary": p.get("base_salary", 0), "currency": p.get("currency", "INR")} for p in hrms_payroll_profiles_collection.find(q).sort("updated_at", -1).limit(300)]
@@ -880,11 +900,29 @@ def payroll_workspace(user):
     }
 
 
-def performance_workspace(user):
+def performance_workspace(user, summary_only=False):
     seed_default_templates()
     employees = performance_employees(user)
     ids = [e.get("_id") for e in employees if e]
     q = {"employee_id": {"$in": ids}} if ids else {"employee_id": None}
+    if summary_only:
+        return {
+            "role": user_role(user),
+            "permissions": {
+                "is_super": is_super(user),
+                "can_create_templates": is_template_role(user),
+                "can_assign_goals": is_super(user) or bool(direct_reports(user)),
+            },
+            "employees": [],
+            "templates": [],
+            "goals": [],
+            "summary": {
+                "goals": hrms_performance_goals_collection.count_documents(q),
+                "submitted": hrms_performance_goals_collection.count_documents({**q, "status": "Submitted"}),
+                "completed": hrms_performance_goals_collection.count_documents({**q, "status": "Completed"}),
+                "needs_improvement": hrms_performance_goals_collection.count_documents({**q, "status": "Needs Improvement"}),
+            },
+        }
     goals = [serialize_goal(g, user) for g in hrms_performance_goals_collection.find(q).sort("created_at", -1).limit(500)]
     templates = [serialize_template(t) for t in hrms_performance_templates_collection.find({}).sort("name", 1).limit(200)]
     return {

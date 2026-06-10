@@ -17,13 +17,18 @@
     <button class="btn secondary" id="refreshPerformanceBtn" type="button">Refresh</button>
 </section>
 
+<details class="panel compact-accordion" id="performanceStatusAccordion">
+    <summary><span>Showing Status Values</span><strong id="performanceStatusSummary">Loading</strong></summary>
 <section class="stat-grid compact-stat-grid" aria-live="polite">
     <article class="stat-card"><span>Total Goals</span><strong id="perfGoalCount">0</strong><small>Visible to your role</small></article>
     <article class="stat-card"><span>Submitted</span><strong id="perfSubmittedCount">0</strong><small>Employee checked items</small></article>
     <article class="stat-card"><span>Completed</span><strong id="perfCompletedCount">0</strong><small>Manager verified</small></article>
     <article class="stat-card"><span>Needs Improvement</span><strong id="perfIssueCount">0</strong><small>Rejected checklist items</small></article>
 </section>
+</details>
 
+<details class="panel compact-accordion lazy-workspace" id="performanceWorkspaceDetails" open>
+    <summary><span>Goals, templates, and rules</span><strong id="performanceAttentionCount">0</strong></summary>
 <section class="tabbed-page simple-hrms-page" id="performanceApp">
     <div class="panel tab-toolbar" role="tablist" aria-label="Performance sections">
         <button class="tab-btn active" data-tab-target="my-goals" type="button">My / Team Goals</button>
@@ -116,6 +121,7 @@
         </div>
     </section>
 </section>
+</details>
 {% endblock %}
 
 {% block scripts %}

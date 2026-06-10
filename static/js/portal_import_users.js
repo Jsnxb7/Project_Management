@@ -8,7 +8,7 @@ const importSummary = document.getElementById("importSummary");
 let previewRows = [];
 
 function authHeaders(json = true) {
-    const headers = {"Authorization": `Bearer ${localStorage.getItem("token")}`};
+    const headers = {"Authorization": `Bearer ${getToken()}`};
     if (json) headers["Content-Type"] = "application/json";
     return headers;
 }

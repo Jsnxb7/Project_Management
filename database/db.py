@@ -15,6 +15,7 @@ from pymongo.collection import Collection
 from pymongo.errors import OperationFailure, ServerSelectionTimeoutError
 
 from config import Config
+from database.local_cache import CachedCollection, cache_status, preload_cache, warm_cache_async
 
 
 COLLECTION_NAMES = [
@@ -143,7 +144,16 @@ db = client[Config.DB_NAME]
 
 
 def get_collection(name: str) -> Collection:
-    return db[name]
+    return CachedCollection(db[name])
+
+
+def start_local_cache_warmup():
+    preload_cache(COLLECTION_NAMES)
+    warm_cache_async((name, db[name]) for name in COLLECTION_NAMES)
+
+
+def local_cache_status() -> dict:
+    return cache_status()
 
 
 def check_mongo_connection() -> dict:

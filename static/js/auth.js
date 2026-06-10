@@ -57,8 +57,10 @@ if (loginForm) {
         showMessage(data.message, data.success, data.warning);
 
         if (data.success) {
-            localStorage.setItem("token", data.data.token);
-            localStorage.setItem("user", JSON.stringify(data.data.user));
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            sessionStorage.setItem("token", data.data.token);
+            sessionStorage.setItem("user", JSON.stringify(data.data.user));
             const role = data.data.user.hrms_role || data.data.user.portal_role || data.data.user.role;
             window.location.href = role === "Candidate" ? "/candidate-process" : "/dashboard";
         }

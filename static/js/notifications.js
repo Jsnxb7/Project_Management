@@ -1,5 +1,5 @@
 function tokenHeaders() {
-    const token = localStorage.getItem("token");
+    const token = getToken();
     return {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,

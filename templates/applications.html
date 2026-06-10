@@ -42,8 +42,10 @@
     <div id="applicationsPagination" class="pagination-bar"></div>
 </section>
 
-<section class="panel" id="reportPanel" hidden>
-    <div class="split">
+<div class="ui-modal" id="reportPanel" hidden>
+    <div class="ui-modal__backdrop" id="closeReportBackdrop"></div>
+    <section class="ui-modal__panel" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+    <div class="ui-modal__head split">
         <div>
             <p class="eyebrow">Explainable AI Report</p>
             <h2 id="reportTitle">AI Report</h2>
@@ -51,6 +53,7 @@
         <button id="closeReport" class="btn small secondary" type="button">Close</button>
     </div>
     <div id="reportBody"></div>
-</section>
+    </section>
+</div>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/applications.js') }}"></script>{% endblock %}

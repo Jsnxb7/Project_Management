@@ -1,10 +1,12 @@
 function tokenHeaders() {
-    return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}` };
+    return { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` };
 }
 function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
 function moneyText(value) { return `₹${Number(value || 0).toLocaleString("en-IN")}`; }
 function getSelectedValues(select) { return Array.from(select?.selectedOptions || []).map(o => o.value).filter(Boolean); }
 let performanceState = { employees: [], templates: [], goals: [], permissions: {} };
+let performanceWorkspaceOpen = false;
+let performanceDetailsLoaded = false;
 let goalPage = 1;
 let templatePage = 1;
 const goalClientLimit = 8;
@@ -86,7 +88,7 @@ function checklistHtml(goal) {
 function goalCard(goal) {
     const pct = Math.max(0, Math.min(100, Number(goal.score || 0)));
     const statusClass = goal.status === "Completed" ? "success" : goal.status === "Needs Improvement" ? "danger" : goal.status === "Submitted" ? "warning" : "neutral";
-    return `<article class="record-card goal-card" data-goal-row data-search="${escapeHTML(`${goal.employee_name} ${goal.title}`.toLowerCase())}">
+    return `<article class="member-card goal-card" data-goal-row data-search="${escapeHTML(`${goal.employee_name} ${goal.title}`.toLowerCase())}">
         <div class="split goal-head"><div><strong>${escapeHTML(goal.title || "Performance goal")}</strong><p class="muted">${escapeHTML(goal.employee_name)} • ${escapeHTML(goal.cycle_key || "Current month")}</p></div><span class="status-pill ${statusClass}">${escapeHTML(goal.status || "Assigned")}</span></div>
         <p>${escapeHTML(goal.description || "")}</p>
         <div class="score-meter"><span style="width:${pct}%"></span></div>
@@ -110,26 +112,51 @@ function renderGoals() {
     renderClientPager("goalPagination", page.meta, "goals", () => { goalPage = Math.max(1, goalPage - 1); renderGoals(); }, () => { goalPage += 1; renderGoals(); });
 }
 
-async function loadPerformance() {
-    if (!requireAuth()) return;
-    const res = await fetch("/api/hrms/performance", { headers: tokenHeaders() });
-    const data = await res.json();
-    if (!data.success) { toast(data.message || "Could not load performance", false, data.warning); return; }
-    performanceState = data.data || performanceState;
-    goalPage = 1; templatePage = 1;
-    setText("perfGoalCount", performanceState.summary?.goals || 0);
-    setText("perfSubmittedCount", performanceState.summary?.submitted || 0);
-    setText("perfCompletedCount", performanceState.summary?.completed || 0);
-    setText("perfIssueCount", performanceState.summary?.needs_improvement || 0);
-    applyPerformancePermissions();
+function renderPerformanceWorkspace() {
+    if (!performanceWorkspaceOpen) return;
     fillPerformanceSelects();
     renderTemplates();
     renderGoals();
 }
 
+async function loadPerformance(full = performanceWorkspaceOpen) {
+    if (!requireAuth()) return;
+    const res = await fetch(`/api/hrms/performance${full ? "" : "?summary_only=1"}`, { headers: tokenHeaders() });
+    const data = await res.json();
+    if (!data.success) { toast(data.message || "Could not load performance", false, data.warning); return; }
+    performanceState = data.data || performanceState;
+    if (full) performanceDetailsLoaded = true;
+    goalPage = 1; templatePage = 1;
+    setText("perfGoalCount", performanceState.summary?.goals || 0);
+    setText("perfSubmittedCount", performanceState.summary?.submitted || 0);
+    setText("perfCompletedCount", performanceState.summary?.completed || 0);
+    setText("perfIssueCount", performanceState.summary?.needs_improvement || 0);
+    const attention = Number(performanceState.summary?.submitted || 0) + Number(performanceState.summary?.needs_improvement || 0);
+    setText("performanceAttentionCount", String(attention));
+    setText("performanceStatusSummary", `${attention} need attention`);
+    applyPerformancePermissions();
+    renderPerformanceWorkspace();
+}
+
+function openPerformanceWorkspace() {
+    const modal = document.getElementById("performanceWorkspaceDetails");
+    if (!modal) return;
+    performanceWorkspaceOpen = true;
+    modal.open = true;
+    if (!performanceDetailsLoaded) loadPerformance(true);
+    else renderPerformanceWorkspace();
+}
+
+function closePerformanceWorkspace() {
+    const modal = document.getElementById("performanceWorkspaceDetails");
+    if (modal) modal.open = false;
+    performanceWorkspaceOpen = false;
+}
+
 function useTemplate(id) {
     const t = (performanceState.templates || []).find(x => x.id === id);
     if (!t) return;
+    openPerformanceWorkspace();
     document.querySelector('[data-tab-target="assign-goals"]')?.click();
     const sel = document.getElementById("goalTemplateSelect");
     if (sel) sel.value = id;
@@ -189,8 +216,15 @@ function filterGoals() {
 }
 
 function initPerformancePage() {
-    loadPerformance();
-    document.getElementById("refreshPerformanceBtn")?.addEventListener("click", loadPerformance);
+    const workspace = document.getElementById("performanceWorkspaceDetails");
+    performanceWorkspaceOpen = Boolean(workspace?.open);
+    loadPerformance(performanceWorkspaceOpen);
+    document.getElementById("performanceWorkspaceDetails")?.addEventListener("toggle", event => {
+        performanceWorkspaceOpen = event.currentTarget.open;
+        if (performanceWorkspaceOpen && !performanceDetailsLoaded) loadPerformance(true);
+        else if (performanceWorkspaceOpen) renderPerformanceWorkspace();
+    });
+    document.getElementById("refreshPerformanceBtn")?.addEventListener("click", () => loadPerformance(performanceWorkspaceOpen));
     document.getElementById("assignGoalForm")?.addEventListener("submit", assignGoal);
     document.getElementById("templateForm")?.addEventListener("submit", createTemplate);
     document.getElementById("goalSearch")?.addEventListener("input", filterGoals);

@@ -8,6 +8,7 @@ instance/
 static/uploads/*
 !.gitkeep
 database/json_data/
+database/local_cache/
 scripts/create_super_user.py
 scripts/repair_org_relations.py
 scripts/repair_team_relations.py

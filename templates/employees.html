@@ -7,29 +7,44 @@
     <div>
         <p class="eyebrow">Employee Management</p>
         <h1>Employee Directory</h1>
-        <p class="muted">Profiles, departments, designations, managers, documents, salary data, and work history.</p>
+        <p class="muted">Browse visible employees and the employees assigned directly to you.</p>
     </div>
 </section>
 
-<section class="panel">
-    <div class="toolbar-right">
-        <input id="employeeSearch" placeholder="Search employees, departments, designations">
-        <button class="btn" id="employeeSearchBtn" type="button">Search</button>
+<section class="panel employee-directory-page">
+    <div class="split">
+        <div>
+            <h2>Directory</h2>
+            <p class="muted">Search by name, email, department, designation, or employee code.</p>
+        </div>
+        <div class="toolbar-right employee-search-bar">
+            <input id="employeeSearch" type="search" placeholder="Search employees">
+            <button class="btn" id="employeeSearchBtn" type="button">Search</button>
+        </div>
     </div>
-    <div class="section-stack">
-        <div>
-            <h2 id="employeeDirectoryTitle">Department Users</h2>
-            <div id="employeeList" class="mini-list"></div>
+
+    <div class="section-stack employee-directory-grid">
+        <details id="visibleEmployeesSection" class="employee-directory-section visible-employees-section" open>
+            <summary>
+                <span id="employeeDirectoryTitle">Visible Employees</span>
+                <strong id="employeeVisibleCount">0</strong>
+            </summary>
+            <div id="employeeList" class="mini-list employee-list"></div>
             <div id="employeePagination" class="pagination-bar"></div>
-        </div>
-        <div>
-            <h2>Assigned To You</h2>
-            <div id="assignedEmployeeList" class="mini-list"></div>
-        </div>
+        </details>
+
+        <details id="assignedEmployeesSection" class="employee-directory-section assigned-employees-section">
+            <summary>
+                <span>Assigned Employees</span>
+                <strong id="employeeAssignedCount">0</strong>
+            </summary>
+            <div id="assignedEmployeeList" class="mini-list employee-list"></div>
+            <div id="assignedEmployeePagination" class="pagination-bar"></div>
+        </details>
     </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+<script src="{{ url_for('static', filename='js/employees.js', v='employees-rebuild-3') }}"></script>
 {% endblock %}

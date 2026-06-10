@@ -13,8 +13,8 @@ class Config:
     # -------------------------------------------------------------------------
     # App / security
     # -------------------------------------------------------------------------
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-this")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret-change-this")
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
     JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", str(60 * 60 * 24)))
 
     FLASK_ENV = os.getenv("FLASK_ENV", "production")

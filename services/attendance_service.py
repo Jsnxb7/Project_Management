@@ -472,7 +472,22 @@ def list_attendance(user, employee_id=None, start=None, end=None):
     return [serialize_attendance(r) for r in attendance_collection.find(base).sort("date_key", -1).limit(500)]
 
 
-def calendar_payload(user, employee_id=None, month=None):
+def calendar_record_summary(row):
+    if not row:
+        return None
+    return {
+        "employee_id": row.get("employee_id"),
+        "employee_name": row.get("employee_name"),
+        "date": row.get("date"),
+        "worked_minutes": row.get("worked_minutes", 0),
+        "soft_tags": row.get("soft_tags", []),
+        "hard_tags": row.get("hard_tags", []),
+        "status": row.get("status", "present"),
+        "manager_status": row.get("manager_status", "pending_review"),
+    }
+
+
+def calendar_payload(user, employee_id=None, month=None, summary_only=False):
     start, end = month_bounds(month)
     rows = list_attendance(user, employee_id, start, end)
     leave_base = {"start_date": {"$lte": end}, "end_date": {"$gte": start}}
@@ -482,7 +497,7 @@ def calendar_payload(user, employee_id=None, month=None):
         ids = [e["_id"] for e in employees_collection.find(team_employee_query(user), {"_id": 1})]
         leave_base["employee_id"] = {"$in": ids}
     leaves = [serialize_leave(l) for l in leave_requests_collection.find(leave_base).sort("start_date", 1)]
-    return {"start": start, "end": end, "records": rows, "leaves": leaves, "rules": get_rules()}
+    return {"start": start, "end": end, "records": [calendar_record_summary(r) for r in rows] if summary_only else rows, "leaves": leaves, "rules": get_rules()}
 
 
 def request_leave(user, data):

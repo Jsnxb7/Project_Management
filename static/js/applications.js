@@ -136,6 +136,7 @@ async function loadReport(id) {
     const body = document.getElementById('reportBody');
     document.getElementById('reportTitle').textContent = `${app.candidate_name} — ${app.job_title}`;
     panel.hidden = false;
+    document.body.classList.add('modal-open');
     body.innerHTML = `<div class="stats-grid mini-stats">
         <div><span>Semantic</span><b>${escapeHTML(r.semantic_score)}</b></div><div><span>Keywords</span><b>${escapeHTML(r.keyword_score)}</b></div><div><span>Writing</span><b>${escapeHTML(r.writing_score)}</b></div><div><span>Structure</span><b>${escapeHTML(r.structure_score)}</b></div><div><span>ATS</span><b>${escapeHTML(r.ats_score ?? 'N/A')}</b></div><div><span>Final</span><b>${escapeHTML(r.final_score)}</b></div><div><span>Minimum</span><b>${escapeHTML(r.minimum_score)}</b></div>
     </div>
@@ -169,7 +170,12 @@ async function loadReport(id) {
         <button class="btn" type="submit">Create Candidate Account + Assign Room</button>
     </form>
     <h3>Assigned Process Steps</h3>${processStepsList(app.process_steps)}`;
-    panel.scrollIntoView({behavior:'smooth'});
+}
+
+function closeReportPanel() {
+    const panel = document.getElementById('reportPanel');
+    if (panel) panel.hidden = true;
+    document.body.classList.remove('modal-open');
 }
 
 async function submitReview(event, id) {
@@ -250,7 +256,7 @@ async function deleteReport(id) {
     if (!data.success) return toast(data.message || 'Could not delete report', false, data.warning);
     toast('AI report deleted');
     loadApplications();
-    document.getElementById('reportPanel').hidden = true;
+    closeReportPanel();
 }
 
 async function deleteApplication(id) {
@@ -260,13 +266,14 @@ async function deleteApplication(id) {
     if (!data.success) return toast(data.message || 'Could not delete application', false, data.warning);
     toast('Application deleted');
     loadApplications();
-    document.getElementById('reportPanel').hidden = true;
+    closeReportPanel();
 }
 
 document.getElementById('shortlistToggle')?.addEventListener('click', () => { shortlistedOnly = !shortlistedOnly; applicationsPage = 1; document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only'; loadApplications(); });
 document.getElementById('jobFilter')?.addEventListener('change', () => { applicationsPage = 1; loadApplications(); });
 document.getElementById('reviewFilter')?.addEventListener('change', () => { applicationsPage = 1; loadApplications(); });
 document.getElementById('refreshApplications')?.addEventListener('click', loadApplications);
-document.getElementById('closeReport')?.addEventListener('click', () => document.getElementById('reportPanel').hidden = true);
+document.getElementById('closeReport')?.addEventListener('click', closeReportPanel);
+document.getElementById('closeReportBackdrop')?.addEventListener('click', closeReportPanel);
 if (document.getElementById('shortlistToggle')) document.getElementById('shortlistToggle').textContent = shortlistedOnly ? 'Show All' : 'Show Shortlisted Only';
 Promise.all([loadJobFilter(), loadRecruitmentUsers()]).then(loadApplications);

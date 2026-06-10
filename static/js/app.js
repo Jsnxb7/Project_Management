@@ -1,4 +1,4 @@
-function getToken() { return localStorage.getItem("token"); }
+function getToken() { return sessionStorage.getItem("token") || ""; }
 
 const nativeFetch = window.fetch.bind(window);
 let logoutSyncInProgress = false;
@@ -81,6 +81,8 @@ async function logout() {
         toast("Logout sync failed. Please try again.", false);
         return;
     }
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userTheme");
@@ -101,8 +103,42 @@ function toast(message, ok = true, warning = false) {
     window.toastTimer = window.setTimeout(() => { box.className = "toast"; }, 2800);
 }
 
+function ensureCacheOverlay() {
+    let overlay = document.getElementById("cacheWarmOverlay");
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = "cacheWarmOverlay";
+    overlay.className = "cache-warm-overlay";
+    overlay.innerHTML = `<div class="cache-warm-box"><span class="cache-warm-spinner"></span><strong>Loading local cache</strong><small class="muted" id="cacheWarmText">Preparing fast local data...</small></div>`;
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+async function waitForLocalCache() {
+    if (!getToken()) return;
+    for (let i = 0; i < 30; i += 1) {
+        try {
+            const res = await nativeFetch("/api/cache/status", {headers: authHeaders(false), cache: "no-store"});
+            const data = await res.json();
+            const status = data.data || {};
+            if (!status.enabled || !status.warming || (status.ready || 0) > 0) {
+                document.getElementById("cacheWarmOverlay")?.remove();
+                return;
+            }
+            ensureCacheOverlay();
+            const text = document.getElementById("cacheWarmText");
+            if (text) text.textContent = status.last_error || `${status.ready || 0} collections cached`;
+        } catch {
+            document.getElementById("cacheWarmOverlay")?.remove();
+            return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    document.getElementById("cacheWarmOverlay")?.remove();
+}
+
 function currentUser() {
-    try { return JSON.parse(localStorage.getItem("user") || "null"); }
+    try { return JSON.parse(sessionStorage.getItem("user") || "null"); }
     catch { return null; }
 }
 
@@ -473,6 +509,8 @@ function initAdaptiveViewport() {
 }
 
 (function initShell() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     initAdaptiveViewport();
     enablePerformanceMode();
     loadSavedTheme();
@@ -484,6 +522,7 @@ function initAdaptiveViewport() {
     enhanceResponsiveTables();
     initSmartFormLabels();
     initPageTabs();
+    waitForLocalCache();
 
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) logoutBtn.addEventListener("click", logout);

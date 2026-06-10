@@ -18,6 +18,12 @@ from database.db import (
     interview_sessions_collection,
     interview_rooms_collection,
     interview_messages_collection,
+    ai_interview_configs_collection,
+    ai_interview_transcripts_collection,
+    ai_interview_results_collection,
+    live_room_events_collection,
+    live_room_participants_collection,
+    webrtc_signals_collection,
     recruitment_candidates_collection,
     employees_collection,
 )
@@ -1232,6 +1238,49 @@ def list_interviews():
             "candidate_entry_locked": room.get("candidate_entry_locked"),
         })
     return ok("Interviews fetched", {"interviews": payload, "meta": _pagination_meta(total, page, limit)})
+
+
+@recruitment_bp.delete("/interviews/<session_id>")
+@jwt_required()
+def delete_interview_room(session_id):
+    user, error = require_perm("can_run_voice_interviews")
+    if error:
+        return error
+    session_oid = to_object_id(session_id)
+    if not session_oid:
+        return fail("Invalid interview room id", 400)
+    session = interview_sessions_collection.find_one({"_id": session_oid})
+    if not session:
+        return fail("Interview room not found", 404)
+
+    perms = role_permissions(user_role(user))
+    uid = user["_id"]
+    allowed = perms.get("is_super_user") or perms.get("can_manage_recruitment") or session.get("interviewer_user_id") == uid or uid in (session.get("panel_user_ids") or [])
+    if not allowed:
+        return fail("You cannot delete this interview room", 403)
+
+    room_code = session.get("room_code")
+    app_id = session.get("application_id")
+    if room_code:
+        interview_rooms_collection.delete_many({"room_code": room_code})
+        interview_messages_collection.delete_many({"room_code": room_code})
+        ai_interview_configs_collection.delete_many({"room_code": room_code})
+        ai_interview_transcripts_collection.delete_many({"room_code": room_code})
+        ai_interview_results_collection.delete_many({"room_code": room_code})
+        live_room_events_collection.delete_many({"room_code": room_code})
+        live_room_participants_collection.delete_many({"room_code": room_code})
+        webrtc_signals_collection.delete_many({"room_code": room_code})
+        applications_collection.update_many(
+            {"room_code": room_code},
+            {"$unset": {"room_code": "", "interview_session_id": "", "join_url": "", "controller_url": ""}, "$set": {"requires_interview_scheduling": True, "updated_at": now()}},
+        )
+    if app_id:
+        applications_collection.update_one(
+            {"_id": app_id, "interview_session_id": session_oid},
+            {"$unset": {"interview_session_id": "", "join_url": "", "controller_url": ""}, "$set": {"updated_at": now()}},
+        )
+    interview_sessions_collection.delete_one({"_id": session_oid})
+    return ok("Interview room deleted", {"room_code": room_code, "session_id": str(session_oid)})
 
 
 @recruitment_bp.post("/ai/voice-answer")

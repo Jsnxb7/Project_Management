@@ -12,7 +12,7 @@ let portalUserPage = 1;
 const portalUserLimit = 25;
 
 function tokenHeaders() {
-    return {"Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}`};
+    return {"Content-Type": "application/json", "Authorization": `Bearer ${getToken()}`};
 }
 
 function msg(text, ok = false, warning = false) {

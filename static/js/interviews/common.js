@@ -2,7 +2,7 @@
   window.iv2 = window.iv2 || {};
 
   iv2.roomCode = () => document.body.dataset.roomCode || "";
-  iv2.token = () => localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("jwt") || "";
+  iv2.token = () => (typeof getToken === "function" ? getToken() : sessionStorage.getItem("token")) || "";
 
   iv2.api = async function (url, options = {}) {
     const headers = options.headers || {};

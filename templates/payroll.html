@@ -17,13 +17,18 @@
     <button class="btn secondary" id="refreshPayrollBtn" type="button">Refresh</button>
 </section>
 
+<details class="panel compact-accordion" id="payrollStatusAccordion">
+    <summary><span>Showing Status Values</span><strong id="payrollStatusSummary">Loading</strong></summary>
 <section class="stat-grid compact-stat-grid" aria-live="polite">
     <article class="stat-card"><span>Payroll Items</span><strong id="payrollItemCount">0</strong><small>Visible records</small></article>
     <article class="stat-card"><span>Pending Manager Review</span><strong id="payrollPendingCount">0</strong><small>Need manager confirmation</small></article>
     <article class="stat-card"><span>Paid</span><strong id="payrollPaidCount">0</strong><small>Marked paid internally</small></article>
     <article class="stat-card"><span>Additions / Deductions</span><strong id="payrollAdjustmentCount">0</strong><small>Linked impacts</small></article>
 </section>
+</details>
 
+<details class="panel compact-accordion lazy-workspace" id="payrollWorkspaceDetails" open>
+    <summary><span>Payroll details and actions</span><strong id="payrollAttentionCount">0</strong></summary>
 <section class="tabbed-page simple-hrms-page" id="payrollApp">
     <div class="panel tab-toolbar" role="tablist" aria-label="Payroll sections">
         <button class="tab-btn active" data-tab-target="payroll-list" type="button">Payrolls</button>
@@ -133,6 +138,7 @@
         </div>
     </section>
 </section>
+</details>
 {% endblock %}
 
 {% block scripts %}

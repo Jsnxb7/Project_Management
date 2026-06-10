@@ -1,10 +1,12 @@
 function tokenHeaders() {
-    return { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}` };
+    return { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` };
 }
 function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
 function moneyText(value) { return `INR ${Number(value || 0).toLocaleString("en-IN")}`; }
 function selectedValues(select) { return Array.from(select?.selectedOptions || []).map(o => o.value).filter(Boolean); }
 let payrollState = { employees: [], items: [], adjustments: [], profiles: [], permissions: {}, summary: {} };
+let payrollWorkspaceOpen = false;
+let payrollDetailsLoaded = false;
 let payrollItemPage = 1;
 let adjustmentPage = 1;
 let profilePage = 1;
@@ -57,7 +59,7 @@ function payrollCard(item) {
     const canConfirm = payrollState.permissions?.can_confirm_payroll || payrollState.permissions?.is_super;
     const canPay = payrollState.permissions?.can_create_payroll;
     const profileStatus = item.salary_profile_verified ? `Profile checked: ${moneyText(item.profile_base_salary)}` : "No salary profile";
-    return `<article class="record-card payroll-record">
+    return `<article class="member-card payroll-record">
         <div class="split"><div><strong>${escapeHTML(item.employee_name)} - ${escapeHTML(item.cycle_key)}</strong><p class="muted">Base salary plus checked additions minus checked deductions. ${escapeHTML(profileStatus)}${item.manual_override ? " - Manual edit" : ""}</p></div><span class="status-pill ${statusClass}">${escapeHTML(item.status || "draft")}</span></div>
         <div class="record-breakdown"><span>Base: ${moneyText(item.base_salary)}</span><span>Additions: ${moneyText(item.additions)}</span><span>Deductions: ${moneyText(item.deductions)}</span><span>Net: <strong>${moneyText(item.net_pay)}</strong></span></div>
         <div class="action-row">${canConfirm ? `<button class="btn small secondary" data-confirm-payroll="${escapeHTML(item.id)}" type="button">Manager Confirm</button><button class="btn small ghost" data-rework-payroll="${escapeHTML(item.id)}" type="button">Needs Changes</button>` : ""}${canPay ? `<button class="btn small secondary" data-edit-payroll="${escapeHTML(item.id)}" type="button">Edit</button><button class="btn small success" data-pay-payroll="${escapeHTML(item.id)}" type="button">Mark Paid</button>` : ""}</div>
@@ -69,7 +71,7 @@ function adjustmentCard(adj) {
     const status = adj.included ? "Included" : "Excluded";
     const statusClass = adj.included ? (isPositive ? "success" : "warning") : "neutral";
     const canToggle = payrollState.permissions?.can_confirm_payroll || payrollState.permissions?.is_super;
-    return `<article class="record-card adjustment-record">
+    return `<article class="member-card adjustment-record">
         <div class="split"><div><strong>${escapeHTML(adj.employee_name)} - ${escapeHTML(adj.category)}</strong><p class="muted">${escapeHTML(adj.reason || "Payroll impact")}</p></div><span class="status-pill ${statusClass}">${status}</span></div>
         <div class="record-breakdown"><span>${isPositive ? "Addition" : "Deduction"}</span><span>${moneyText(adj.amount)}</span><span>Source: ${escapeHTML(adj.source || "manual")}</span></div>
         ${canToggle ? `<label class="switch-row no-auto-label"><input type="checkbox" data-toggle-adjustment="${escapeHTML(adj.id)}" ${adj.included ? "checked" : ""}> Include in payroll</label>` : ""}
@@ -77,7 +79,7 @@ function adjustmentCard(adj) {
 }
 
 function profileCard(profile) {
-    return `<article class="record-card mini-item"><span><strong>${escapeHTML(profile.employee_name)}</strong><br><small>${escapeHTML(profile.currency || "INR")}</small></span><strong>${moneyText(profile.base_salary)}</strong></article>`;
+    return `<article class="member-card mini-item"><span><strong>${escapeHTML(profile.employee_name)}</strong><br><small>${escapeHTML(profile.currency || "INR")}</small></span><strong>${moneyText(profile.base_salary)}</strong></article>`;
 }
 
 function renderPayroll() {
@@ -85,6 +87,11 @@ function renderPayroll() {
     setText("payrollPendingCount", payrollState.summary?.pending_manager || 0);
     setText("payrollPaidCount", payrollState.summary?.paid || 0);
     setText("payrollAdjustmentCount", payrollState.summary?.adjustments || 0);
+    const attention = Number(payrollState.summary?.pending_manager || 0) + Number(payrollState.summary?.adjustments || 0);
+    setText("payrollAttentionCount", String(attention));
+    setText("payrollStatusSummary", `${attention} need attention`);
+
+    if (!payrollWorkspaceOpen) return;
 
     const payrollList = document.getElementById("payrollList");
     const payrollPage = clientSlice(payrollState.items || [], payrollItemPage, payrollClientLimit);
@@ -105,16 +112,37 @@ function renderPayroll() {
     renderClientPager("profilePagination", profPage.meta, "salary profiles", () => { profilePage = Math.max(1, profilePage - 1); renderPayroll(); }, () => { profilePage += 1; renderPayroll(); });
 }
 
-async function loadPayroll() {
+function renderPayrollWorkspace() {
+    if (!payrollWorkspaceOpen) return;
+    fillPayrollSelects();
+    renderPayroll();
+}
+
+async function loadPayroll(full = payrollWorkspaceOpen) {
     if (!requireAuth()) return;
-    const res = await fetch("/api/hrms/payroll", { headers: tokenHeaders() });
+    const res = await fetch(`/api/hrms/payroll${full ? "" : "?summary_only=1"}`, { headers: tokenHeaders() });
     const data = await res.json();
     if (!data.success) { toast(data.message || "Could not load payroll", false, data.warning); return; }
     payrollState = data.data || payrollState;
+    if (full) payrollDetailsLoaded = true;
     payrollItemPage = 1; adjustmentPage = 1; profilePage = 1;
     applyPayrollPermissions();
-    fillPayrollSelects();
     renderPayroll();
+}
+
+function openPayrollWorkspace() {
+    const modal = document.getElementById("payrollWorkspaceDetails");
+    if (!modal) return;
+    payrollWorkspaceOpen = true;
+    modal.open = true;
+    if (!payrollDetailsLoaded) loadPayroll(true);
+    else renderPayrollWorkspace();
+}
+
+function closePayrollWorkspace() {
+    const modal = document.getElementById("payrollWorkspaceDetails");
+    if (modal) modal.open = false;
+    payrollWorkspaceOpen = false;
 }
 
 async function generatePayroll(event) {
@@ -212,8 +240,15 @@ async function editPayroll(id) {
 }
 
 function initPayrollPage() {
-    loadPayroll();
-    document.getElementById("refreshPayrollBtn")?.addEventListener("click", loadPayroll);
+    const workspace = document.getElementById("payrollWorkspaceDetails");
+    payrollWorkspaceOpen = Boolean(workspace?.open);
+    loadPayroll(payrollWorkspaceOpen);
+    document.getElementById("payrollWorkspaceDetails")?.addEventListener("toggle", event => {
+        payrollWorkspaceOpen = event.currentTarget.open;
+        if (payrollWorkspaceOpen && !payrollDetailsLoaded) loadPayroll(true);
+        else if (payrollWorkspaceOpen) renderPayrollWorkspace();
+    });
+    document.getElementById("refreshPayrollBtn")?.addEventListener("click", () => loadPayroll(payrollWorkspaceOpen));
     document.getElementById("generatePayrollForm")?.addEventListener("submit", generatePayroll);
     document.getElementById("payrollProfileForm")?.addEventListener("submit", saveProfile);
     document.getElementById("bulkProfileForm")?.addEventListener("submit", generateProfiles);

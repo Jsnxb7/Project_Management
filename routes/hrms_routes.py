@@ -228,7 +228,16 @@ def list_employees():
         limit = max(1, min(int(request.args.get("limit", 25)), 100))
     except (TypeError, ValueError):
         limit = 25
+    try:
+        assigned_page = max(1, int(request.args.get("assigned_page", 1)))
+    except (TypeError, ValueError):
+        assigned_page = 1
+    try:
+        assigned_limit = max(1, min(int(request.args.get("assigned_limit", 12)), 100))
+    except (TypeError, ValueError):
+        assigned_limit = 12
     skip = (page - 1) * limit
+    assigned_skip = (assigned_page - 1) * assigned_limit
     search_query = {}
     if q:
         regex = {"$regex": q, "$options": "i"}
@@ -242,13 +251,17 @@ def list_employees():
     assigned_query = with_search(assigned_employee_query(user))
     total = employees_collection.count_documents(all_query)
     pages = max(1, (total + limit - 1) // limit)
-    employees = list(employees_collection.find(all_query).sort("name", 1).skip(skip).limit(limit))
-    assigned_employees = list(employees_collection.find(assigned_query).sort("name", 1).limit(50))
+    assigned_total = employees_collection.count_documents(assigned_query)
+    assigned_pages = max(1, (assigned_total + assigned_limit - 1) // assigned_limit)
+    scope = (request.args.get("scope") or "all").lower()
+    employees = [] if scope == "assigned" else list(employees_collection.find(all_query).sort("name", 1).skip(skip).limit(limit))
+    assigned_employees = [] if scope == "visible" else list(employees_collection.find(assigned_query).sort("name", 1).skip(assigned_skip).limit(assigned_limit))
     return ok("Employees fetched", {
         "employees": [serialize_employee(e) for e in employees],
         "department_employees": [serialize_employee(e) for e in employees],
         "assigned_employees": [serialize_employee(e) for e in assigned_employees],
         "meta": {"page": page, "limit": limit, "total": total, "pages": pages, "has_next": page < pages, "has_prev": page > 1},
+        "assigned_meta": {"page": assigned_page, "limit": assigned_limit, "total": assigned_total, "pages": assigned_pages, "has_next": assigned_page < assigned_pages, "has_prev": assigned_page > 1},
     })
 
 
@@ -357,7 +370,7 @@ def attendance_calendar():
     user = current_user()
     if not user:
         return fail("User not found", 404)
-    return ok("Attendance calendar fetched", att.calendar_payload(user, request.args.get("employee_id"), request.args.get("month")))
+    return ok("Attendance calendar fetched", att.calendar_payload(user, request.args.get("employee_id"), request.args.get("month"), summary_only=request.args.get("summary_only") == "1"))
 
 
 @hrms_bp.get("/attendance/my")
@@ -706,7 +719,7 @@ def payroll_workspace():
         return fail("User not found", 404)
     if not role_permissions(user_role(user)).get("can_view_payroll"):
         return warn("Warning: your HRMS role cannot view payroll.")
-    return ok("Payroll workspace fetched", pps.payroll_workspace(user))
+    return ok("Payroll workspace fetched", pps.payroll_workspace(user, summary_only=request.args.get("summary_only") == "1"))
 
 
 @hrms_bp.post("/payroll")
@@ -825,7 +838,7 @@ def performance_workspace():
         return fail("User not found", 404)
     if not role_permissions(user_role(user)).get("can_view_performance"):
         return warn("Warning: your HRMS role cannot view performance.")
-    return ok("Performance workspace fetched", pps.performance_workspace(user))
+    return ok("Performance workspace fetched", pps.performance_workspace(user, summary_only=request.args.get("summary_only") == "1"))
 
 
 @hrms_bp.post("/performance")

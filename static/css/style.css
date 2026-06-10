@@ -1987,6 +1987,39 @@ button:disabled, .btn:disabled { opacity: .45; cursor: not-allowed; filter: gray
 
 /* Scoped employee directory + Mongo-backed internal messaging */
 .employee-directory-row { align-items: center; }
+.employee-directory-row > span:first-child { min-width: 0; }
+.employee-directory-row .row-actions { align-items: flex-start; }
+.employee-directory-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: .85rem;
+  background: rgba(255,255,255,.035);
+}
+.employee-directory-section summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: .8rem;
+}
+.employee-directory-section summary::-webkit-details-marker { display: none; }
+.employee-directory-section summary span { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+.employee-directory-section summary strong {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: .25rem .55rem;
+  color: var(--text-2);
+  background: rgba(255,255,255,.06);
+  font-size: .78rem;
+}
+.visible-employees-section { border-color: rgba(143,183,255,.34); background: rgba(143,183,255,.055); }
+.assigned-employees-section { border-color: rgba(120,224,194,.34); background: rgba(120,224,194,.055); }
+.employee-directory-page .split { align-items: flex-start; }
+.employee-search-bar input { min-width: min(360px, 100%); }
+.employee-directory-grid { align-items: start; }
+.employee-list.is-loading { opacity: .7; pointer-events: none; }
 .section-stack { display: grid; gap: 1.35rem; margin-top: 1rem; }
 .section-stack h2 { margin: 0 0 .7rem; font-size: 1.1rem; }
 .row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; text-align: right; }
@@ -2087,6 +2120,7 @@ button:disabled, .btn:disabled { opacity: .45; cursor: not-allowed; filter: gray
 
 /* Attendance manager/refinement patch */
 .calendar-panel { min-width: 0; overflow: visible; }
+.calendar-only-layout { display: block; }
 .attendance-calendar { grid-template-columns: repeat(7, minmax(96px, 1fr)); gap: 12px; width: 100%; overflow: visible; }
 .calendar-day { min-width: 0; max-width: 100%; overflow: visible; display: flex; flex-direction: column; gap: 4px; }
 .calendar-day p, .calendar-day h4, .calendar-day small { overflow-wrap: anywhere; word-break: break-word; }
@@ -2161,6 +2195,107 @@ button:disabled, .btn:disabled { opacity: .45; cursor: not-allowed; filter: gray
 }
 body.performance-lite .video-background { display:none; }
 body.performance-lite .panel, body.performance-lite .record-card { backdrop-filter:none; }
+
+/* Compact accordions and workspace popups */
+.inline-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  min-height: 1.6rem;
+  margin-left: .45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.10);
+  color: var(--text);
+  font-size: .82rem;
+}
+.compact-accordion { padding: 0; overflow: hidden; }
+.compact-accordion summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  cursor: pointer;
+  list-style: none;
+}
+.compact-accordion summary::-webkit-details-marker { display: none; }
+.compact-accordion summary span { color: var(--text-2); font-weight: 800; }
+.compact-accordion summary strong { color: var(--primary); font-size: .95rem; }
+.compact-accordion > section { padding: 0 1rem 1rem; }
+.ui-modal[hidden] { display: none !important; }
+.ui-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+.ui-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 7, 12, .72);
+  backdrop-filter: blur(10px);
+}
+.ui-modal__panel {
+  position: relative;
+  width: min(1120px, 96vw);
+  max-height: min(86vh, 920px);
+  overflow: auto;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(20,28,39,.98), rgba(8,11,18,.98));
+  box-shadow: 0 28px 90px rgba(0,0,0,.48);
+}
+.ui-modal__head {
+  position: sticky;
+  top: -1.15rem;
+  z-index: 4;
+  margin: -1.15rem -1.15rem 1rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(15, 21, 31, .96);
+  backdrop-filter: blur(12px);
+}
+.ui-modal__head h2 { margin-bottom: 0; }
+.ui-modal .panel.flat-panel,
+.ui-modal .tab-toolbar,
+.ui-modal [data-tab-panel] {
+  box-shadow: none;
+  backdrop-filter: none;
+}
+body.modal-open { overflow: hidden; }
+.cache-warm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 7, 12, .74);
+  backdrop-filter: blur(10px);
+}
+.cache-warm-box {
+  display: grid;
+  justify-items: center;
+  gap: .75rem;
+  min-width: 240px;
+  padding: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
+}
+.cache-warm-spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,.18);
+  border-top-color: var(--primary);
+  animation: logoutSpin .8s linear infinite;
+}
 
 /* Simple performance + payroll redesign */
 .simple-hrms-page .record-list { display: grid; gap: 1rem; }

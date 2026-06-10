@@ -1,5 +1,5 @@
 function tokenHeaders() {
-    return {"Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}`};
+    return {"Content-Type": "application/json", "Authorization": `Bearer ${getToken()}`};
 }
 
 function showMessage(el, text, ok = false, warning = false) {

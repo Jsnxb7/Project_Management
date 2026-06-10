@@ -12,9 +12,12 @@
     <div class="action-row">
         <button class="btn" id="checkInBtn" type="button">Check In</button>
         <button class="btn secondary" id="checkOutBtn" type="button">Check Out</button>
+        <button class="btn secondary" id="openAttendanceToolsBtn" type="button">Needs Attention <span id="attendanceAttentionCount" class="inline-count">0</span></button>
     </div>
 </section>
 
+<details class="panel compact-accordion" id="attendanceStatusAccordion">
+    <summary><span>Showing Status Values</span><strong id="attendanceStatusSummary">Loading</strong></summary>
 <section class="stat-grid attendance-stat-grid dynamic-attendance-widgets">
     <article class="stat-card clickable-widget" data-widget="today"><span>Today</span><strong id="todayStatus">Loading</strong><small id="todayTimes">--</small></article>
     <article class="stat-card"><span>Worked Today</span><strong id="todayWorked">0h</strong><small id="todayWorkedNote">Current recorded time</small></article>
@@ -25,6 +28,7 @@
     <article class="stat-card"><span>Pending Leaves</span><strong id="pendingLeaveCount">0</strong><small>Waiting for manager action</small></article>
     <article class="stat-card"><span>Pending Reviews</span><strong id="pendingReviewCount">0</strong><small>Soft tags to confirm/excuse</small></article>
 </section>
+</details>
 
 <section class="panel attendance-toolbar">
     <div class="toolbar-left">
@@ -45,7 +49,7 @@
     </div>
 </section>
 
-<section class="attendance-layout refined-attendance-layout">
+<section class="attendance-layout refined-attendance-layout calendar-only-layout">
     <div class="panel calendar-panel">
         <div class="section-title split">
             <div>
@@ -64,22 +68,41 @@
         <div id="attendanceCalendar" class="attendance-calendar interactive-calendar" aria-live="polite"></div>
     </div>
 
-    <aside class="panel side-panel attendance-detail-panel">
-        <div class="section-title split">
+</section>
+
+<div class="ui-modal" id="attendanceDayModal" hidden>
+    <div class="ui-modal__backdrop" data-close-attendance-day></div>
+    <section class="ui-modal__panel" role="dialog" aria-modal="true" aria-labelledby="selectedDayTitle">
+    <div class="ui-modal__head split">
+        <div>
+            <p class="eyebrow">Day Details</p>
+            <h2 id="selectedDayTitle">Select a day</h2>
+            <p class="muted" id="selectedDaySubtitle">Calendar details will appear here.</p>
+        </div>
+        <button class="btn small secondary" type="button" data-close-attendance-day>Close</button>
+    </div>
+    <div id="selectedDayDetails" class="selected-day-details empty-state">Loading day details...</div>
+    <div class="selected-day-actions" id="selectedDayActions" hidden>
+        <button class="btn secondary" id="requestLeaveForSelectedBtn" type="button">Request Leave</button>
+        <button class="btn secondary" id="requestCorrectionForSelectedBtn" type="button">Request Correction</button>
+        <button class="btn secondary manager-action" id="scheduleMeetingForSelectedBtn" type="button" hidden>Schedule Meeting</button>
+    </div>
+    </section>
+</div>
+
+<div class="ui-modal" id="attendanceToolsModal" hidden>
+    <div class="ui-modal__backdrop" data-close-attendance-tools></div>
+    <section class="ui-modal__panel" role="dialog" aria-modal="true" aria-labelledby="attendanceToolsTitle">
+        <div class="ui-modal__head split">
             <div>
-                <h2 id="selectedDayTitle">Select a day</h2>
-                <p class="muted" id="selectedDaySubtitle">Calendar details will appear here.</p>
+                <p class="eyebrow">Attendance Actions</p>
+                <h2 id="attendanceToolsTitle">Items needing attention</h2>
             </div>
-        </div>
-        <div id="selectedDayDetails" class="selected-day-details empty-state">Click a calendar day to view attendance records, leave status, tags, and quick actions.</div>
-        <div class="selected-day-actions" id="selectedDayActions" hidden>
-            <button class="btn secondary" id="requestLeaveForSelectedBtn" type="button">Request Leave</button>
-            <button class="btn secondary" id="requestCorrectionForSelectedBtn" type="button">Request Correction</button>
-            <button class="btn secondary manager-action" id="scheduleMeetingForSelectedBtn" type="button" hidden>Schedule Meeting</button>
+            <button class="btn small secondary" type="button" data-close-attendance-tools>Close</button>
         </div>
 
-        <hr class="soft-divider">
-
+<section class="grid-two">
+    <div class="panel">
         <h2>Request Leave</h2>
         <form id="leaveRequestForm" class="stack-form">
             <label>Leave Type<select name="leave_type"><option value="casual_leave">Casual Leave</option><option value="sick_leave">Sick Leave</option><option value="earned_leave">Earned Leave</option><option value="emergency_leave">Emergency Leave</option><option value="half_day">Half Day</option><option value="work_from_home">Work From Home</option><option value="unpaid_leave">Unpaid Leave</option></select></label>
@@ -88,11 +111,7 @@
             <label>Reason<textarea name="reason" rows="3" placeholder="Reason for leave"></textarea></label>
             <button class="btn" type="submit">Submit Leave Request</button>
         </form>
-    </aside>
-</section>
-
-<section class="grid-two">
-    <div class="panel">
+        <hr class="soft-divider">
         <div class="section-title split"><h2>My Leave Requests</h2><span class="muted" id="myLeaveSummary">--</span></div>
         <div id="myLeaveList" class="mini-list"></div>
     </div>
@@ -152,6 +171,8 @@
         <button class="btn" type="submit">Save Rules</button>
     </form>
 </section>
+    </section>
+</div>
 {% endblock %}
 
 {% block scripts %}

@@ -46,6 +46,7 @@ def create_app():
 
     # Load app configuration
     app.config.from_object(Config)
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
 
     # Session configuration
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
@@ -104,6 +105,12 @@ def create_app():
     app.register_blueprint(interview_pages_v2_bp)
 
     init_socket_events(app)
+    from database.db import local_cache_status, start_local_cache_warmup
+    start_local_cache_warmup()
+
+    @app.get("/api/cache/status")
+    def cache_status_endpoint():
+        return {"success": True, "data": local_cache_status()}
 
     @app.after_request
     def no_cache_for_app_pages(response):

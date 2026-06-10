@@ -9,7 +9,7 @@
   let humanRecordingChunks = [];
   let humanRecordingUploaded = false;
 
-  function token() { return localStorage.getItem("access_token") || localStorage.getItem("token") || ""; }
+  function token() { return (typeof getToken === "function" ? getToken() : sessionStorage.getItem("token")) || ""; }
   async function api(url, options = {}) {
     const headers = options.headers || {};
     if (!(options.body instanceof FormData)) headers["Content-Type"] = headers["Content-Type"] || "application/json";
