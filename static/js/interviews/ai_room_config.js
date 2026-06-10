@@ -134,7 +134,7 @@
       const recommendation = String(result.recommendation || "manual_review").replaceAll("_", " ");
       const decision = result.decision ? `<br><strong>Controller Decision:</strong> ${iv2.safe(String(result.decision).replaceAll("_", " "))}` : "";
       const canCreate = canCreateEmployeeFromResult(result);
-      box.innerHTML = `<strong>Overall Score:</strong> ${iv2.safe(result.overall_score)}<br><strong>AI Recommendation:</strong> ${iv2.safe(recommendation)}${decision}<br><span class="iv2-muted">${escapeHtml(result.summary || "")}</span><div class="iv2-mini" style="margin-top:8px">Manual Shortlist is available for controller override even when the AI recommendation is reject/manual review. ${canCreate ? "Create Employee is now active." : "Create Employee unlocks after manual shortlist."}</div>`;
+      box.innerHTML = `<strong>Overall Score:</strong> ${iv2.safe(result.overall_score)}<br><strong>AI Recommendation:</strong> ${iv2.safe(recommendation)}${decision}<br><span class="iv2-muted">${escapeHtml(result.summary || "")}</span><div class="iv2-mini" style="margin-top:8px">Manual Shortlist is available for controller override even when the AI recommendation is reject/manual review. ${canCreate ? "Create Employee is now active." : "Create Employee unlocks after the personal interview is completed."}</div>`;
       updateCreateEmployeeButton(result);
       renderRecordings(result.interview_recordings || result.recordings || []);
       if (transcript) renderTranscript(transcript);
@@ -223,15 +223,22 @@
 
 
   function canCreateEmployeeFromResult(result) {
-    const decision = String(result?.decision || "").toLowerCase();
-    const finalStatus = String(currentApplication?.final_decision?.status || "").toLowerCase();
     const phase = String(currentApplication?.candidate_pipeline?.candidate_phase || currentApplication?.candidate_phase || "").toLowerCase();
+    return phase !== "employee_created" && humanInterviewCompleted();
+  }
+
+  function humanInterviewCompleted() {
+    const statusValues = [
+      currentApplication?.phase_status,
+      currentApplication?.candidate_pipeline?.phase_status,
+      currentApplication?.human_interview_status
+    ].map(value => String(value || "").toLowerCase());
     return Boolean(
-      decision === "manual_shortlist" ||
-      currentApplication?.ai_manual_override === true ||
-      currentApplication?.manual_override === true ||
-      finalStatus === "manually_shortlisted" ||
-      (phase !== "employee_created" && String(currentApplication?.second_round_status || "").toLowerCase().includes("manually shortlisted"))
+      currentApplication?.human_interview_conducted === true ||
+      currentApplication?.human_interview_result ||
+      statusValues.includes("human_interview_completed") ||
+      statusValues.includes("finished") ||
+      statusValues.includes("completed")
     );
   }
 
@@ -249,12 +256,12 @@
     const enabled = canCreateEmployeeFromResult(result);
     btn.disabled = !enabled;
     btn.textContent = "Create Employee";
-    btn.title = enabled ? "Create/link employee record and change this candidate user role to Employee." : "Manual shortlist first, then create employee.";
+    btn.title = enabled ? "Create/link employee record and change this candidate user role to Employee." : "Complete the personal interview before creating the employee profile.";
   }
 
   async function createEmployeeFromAiReport() {
     if (!canCreateEmployeeFromResult(latestResult)) {
-      alert("Manual shortlist this candidate first, then create the employee profile.");
+      alert("Complete the personal interview before creating the employee profile.");
       return;
     }
     if (!confirm("Create/link employee record and change this candidate user role to Employee?")) return;

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-"""Local MongoDB-only database layer.
+"""MongoDB database layer.
 
-This replaces the older Atlas + JSON mirror hybrid.  The app now treats a local
-MongoDB server as the only source of truth.  JSON files may still exist in the
-repository for backups or one-time migration, but runtime reads/writes never use
-or mirror to JSON.
+The app prefers local MongoDB for development and falls back to MongoDB Atlas
+when local MongoDB is unreachable.  That keeps local setup simple while allowing
+hosted deployments such as Render to use Atlas through environment variables.
 """
 
 import os
@@ -91,14 +90,55 @@ COLLECTION_NAMES = [
 # Backward-compatible map for migration scripts only.  Runtime does not use it.
 COLLECTION_REGISTRY = {name: f"{name}.json" for name in COLLECTION_NAMES}
 
-client = MongoClient(
-    Config.MONGO_URI,
-    maxPoolSize=int(os.getenv("MONGO_MAX_POOL_SIZE", "200")),
-    minPoolSize=int(os.getenv("MONGO_MIN_POOL_SIZE", "5")),
-    serverSelectionTimeoutMS=int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "20000")),
-    connectTimeoutMS=int(os.getenv("MONGO_CONNECT_TIMEOUT_MS", "20000")),
-    retryWrites=os.getenv("MONGO_RETRY_WRITES", "true").lower() == "true",
-)
+def _mongo_client(uri: str, *, server_selection_timeout_ms: int | None = None) -> MongoClient:
+    return MongoClient(
+        uri,
+        maxPoolSize=Config.MONGO_MAX_POOL_SIZE,
+        minPoolSize=Config.MONGO_MIN_POOL_SIZE,
+        serverSelectionTimeoutMS=server_selection_timeout_ms or Config.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+        connectTimeoutMS=Config.MONGO_CONNECT_TIMEOUT_MS,
+        retryWrites=Config.MONGO_RETRY_WRITES,
+    )
+
+
+def _candidate_mongo_uris() -> list[tuple[str, str]]:
+    candidates = [
+        ("local", Config.LOCAL_MONGO_URI),
+        ("atlas", Config.ATLAS_MONGO_URI),
+    ]
+    seen: set[str] = set()
+    unique: list[tuple[str, str]] = []
+    for source, uri in candidates:
+        if uri and uri not in seen:
+            unique.append((source, uri))
+            seen.add(uri)
+    return unique
+
+
+def _resolve_mongo_connection() -> tuple[MongoClient, str, str, str | None]:
+    last_source = "local"
+    last_uri = Config.LOCAL_MONGO_URI
+    last_error: str | None = None
+
+    for source, uri in _candidate_mongo_uris():
+        candidate = _mongo_client(
+            uri,
+            server_selection_timeout_ms=Config.MONGO_FALLBACK_SELECTION_TIMEOUT_MS,
+        )
+        last_source = source
+        last_uri = uri
+        try:
+            candidate.admin.command("ping")
+            return candidate, source, uri, None
+        except ServerSelectionTimeoutError as exc:
+            last_error = str(exc)
+            candidate.close()
+
+    fallback_client = _mongo_client(last_uri)
+    return fallback_client, last_source, last_uri, last_error
+
+
+client, MONGO_CONNECTION_SOURCE, ACTIVE_MONGO_URI, MONGO_CONNECTION_ERROR = _resolve_mongo_connection()
 db = client[Config.DB_NAME]
 
 
@@ -109,9 +149,21 @@ def get_collection(name: str) -> Collection:
 def check_mongo_connection() -> dict:
     try:
         client.admin.command("ping")
-        return {"ok": True, "uri": Config.MONGO_URI, "database": Config.DB_NAME}
+        return {
+            "ok": True,
+            "source": MONGO_CONNECTION_SOURCE,
+            "uri": ACTIVE_MONGO_URI,
+            "database": Config.DB_NAME,
+        }
     except ServerSelectionTimeoutError as exc:
-        return {"ok": False, "uri": Config.MONGO_URI, "database": Config.DB_NAME, "error": str(exc)}
+        return {
+            "ok": False,
+            "source": MONGO_CONNECTION_SOURCE,
+            "uri": ACTIVE_MONGO_URI,
+            "database": Config.DB_NAME,
+            "error": str(exc),
+            "initial_error": MONGO_CONNECTION_ERROR,
+        }
 
 
 def ensure_index(collection: Collection, keys, **options):

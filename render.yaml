@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: peopleops-hrms
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:create_app()
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: LOCAL_MONGO_URI
+        value: mongodb://127.0.0.1:27017
+      - key: ATLAS_MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: ai_hrms_local
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false

@@ -14,4 +14,8 @@ scripts/repair_team_relations.py
 config.py
 !.env.example
 !config.example.py
-test/
+!test/
+test/*
+!test/migrate_atlas_to_local_mongo.py
+!test/migrate_local_mongo_to_atlas.py
+!test/render.yaml

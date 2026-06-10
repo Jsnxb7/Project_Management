@@ -58,6 +58,35 @@ def _latest_transcript(room_code: str):
     return rows[0] if rows else None
 
 
+def _is_manually_shortlisted(app: Dict[str, Any], result: Optional[Dict[str, Any]] = None) -> bool:
+    decision_value = str((result or {}).get("decision") or "").lower()
+    second_round_status = str(app.get("second_round_status") or "").lower()
+    return bool(
+        app.get("ai_manual_override")
+        or (result or {}).get("manual_override")
+        or decision_value == "manual_shortlist"
+        or "manually shortlisted" in second_round_status
+    )
+
+
+def _human_interview_completed(app: Dict[str, Any], room: Optional[Dict[str, Any]] = None, phase: Optional[Dict[str, Any]] = None) -> bool:
+    phase = phase or {}
+    status_values = {
+        str(app.get("phase_status") or "").lower(),
+        str((app.get("candidate_pipeline") or {}).get("phase_status") or "").lower(),
+        str(phase.get("phase_status") or "").lower(),
+        str((room or {}).get("status") or "").lower(),
+        str(app.get("human_interview_status") or "").lower(),
+    }
+    return bool(
+        app.get("human_interview_conducted")
+        or app.get("human_interview_result")
+        or "human_interview_completed" in status_values
+        or "finished" in status_values
+        or "completed" in status_values
+    )
+
+
 def _basic_user(user_id):
     oid = to_object_id(user_id) if user_id else None
     if not oid:
@@ -150,6 +179,7 @@ def serialize_pipeline_card(app: Dict[str, Any]) -> Dict[str, Any]:
     if room:
         phase = default_candidate_phase(app, room, result)
     actions = available_actions(app, room, result, phase)
+    ai_score = "Manually Shortlisted" if _is_manually_shortlisted(app, result) else app.get("ai_interview_score") or (result or {}).get("overall_score")
     return {
         "application_id": as_str(app.get("_id")),
         "candidate_uid": app.get("candidate_uid"),
@@ -168,7 +198,7 @@ def serialize_pipeline_card(app: Dict[str, Any]) -> Dict[str, Any]:
         "room_type": (room or {}).get("room_type"),
         "heading": (room or {}).get("heading"),
         "candidate_pipeline": phase,
-        "ai_score": app.get("ai_interview_score") or (result or {}).get("overall_score"),
+        "ai_score": ai_score,
         "ai_recommendation": app.get("ai_interview_recommendation") or (result or {}).get("recommendation"),
         "ai_result_available": bool(result),
         "ai_transcript_available": bool(transcript),
@@ -191,15 +221,11 @@ def available_actions(app, room, result, phase):
         actions.append("configure_ai_room")
     if result:
         actions.extend(["view_ai_report", "move_to_human_interview", "reject"])
-        recommendation = str((result or {}).get("recommendation") or app.get("ai_interview_recommendation") or "").lower()
-        decision_value = str((result or {}).get("decision") or "").lower()
-        manual_shortlisted = bool(app.get("ai_manual_override") or decision_value == "manual_shortlist" or "manually shortlisted" in str(app.get("second_round_status") or "").lower())
-        ai_positive = any(word in recommendation for word in ["shortlist", "select", "hire", "recommend"]) and "reject" not in recommendation
-        if manual_shortlisted or ai_positive:
+        if _human_interview_completed(app, room, phase):
             actions.append("create_employee")
     if phase_name == "human_interview":
         actions.extend(["open_human_room", "assign_interviewer", "mark_selected", "reject"])
-        if app.get("ai_manual_override") or "manually shortlisted" in str(app.get("second_round_status") or "").lower():
+        if _human_interview_completed(app, room, phase):
             actions.append("create_employee")
     if phase_name in {"screening", "ai_interview"} and not app.get("room_code"):
         actions.append("move_to_ai")

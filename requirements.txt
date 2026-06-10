@@ -19,3 +19,4 @@ gTTS
 sentence-transformers
 accelerate
 language-tool-python
+simple-websocket

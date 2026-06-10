@@ -873,7 +873,7 @@ bash scripts/setup_local_mongo_linux_mac.sh
 The scripts use these defaults:
 
 ```env
-MONGO_URI=mongodb://127.0.0.1:27017
+LOCAL_MONGO_URI=mongodb://127.0.0.1:27017
 DB_NAME=ai_hrms_local
 ```
 
@@ -898,7 +898,8 @@ cp .env.example .env
 Then confirm these values exist:
 
 ```env
-MONGO_URI=mongodb://127.0.0.1:27017
+LOCAL_MONGO_URI=mongodb://127.0.0.1:27017
+ATLAS_MONGO_URI=mongodb+srv://<username>:<password>@<cluster-host>/ai_hrms_local?retryWrites=true&w=majority
 DB_NAME=ai_hrms_local
 SECRET_KEY=change-this-local-secret
 JWT_SECRET_KEY=change-this-local-jwt-secret
@@ -908,6 +909,16 @@ MONGO_MIN_POOL_SIZE=5
 ```
 
 Do not commit real `.env` files.
+
+For Render, set `ATLAS_MONGO_URI`, `DB_NAME`, `SECRET_KEY`, and `JWT_SECRET_KEY` in the Render dashboard. The app tries `LOCAL_MONGO_URI` first and automatically falls back to `ATLAS_MONGO_URI` when the local MongoDB server is unavailable.
+
+To migrate local data to Atlas before deploying:
+
+```bash
+python test/migrate_local_mongo_to_atlas.py
+```
+
+Add `--drop-target` if you want the Atlas collections replaced before copying.
 
 ### 17.5 Check MongoDB Connection
 
