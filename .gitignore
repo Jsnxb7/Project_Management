@@ -11,7 +11,6 @@ database/json_data/
 scripts/create_super_user.py
 scripts/repair_org_relations.py
 scripts/repair_team_relations.py
-config.py
 !.env.example
 !config.example.py
 !test/
